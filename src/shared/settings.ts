@@ -1,19 +1,25 @@
 import type { Settings } from './types'
 
-const FONT_STACK =
+
+
+export const SETTINGS_VERSION = 2
+export const EDITOR_FONT_STACK =
+  '"Open Sans", "Clear Sans", "Helvetica Neue", Helvetica, Arial, "Segoe UI Emoji", "PingFang SC", "Microsoft YaHei", sans-serif'
+
+const LEGACY_FONT_STACK =
   '"Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif'
 
 export const DEFAULT_SETTINGS: Settings = {
-  version: 1,
+  version: SETTINGS_VERSION,
   general: {
     language: 'zh-CN',
     restoreWhenLaunch: 'lastFile',
     confirmExit: true
   },
   editor: {
-    fontFamily: FONT_STACK,
+    fontFamily: EDITOR_FONT_STACK,
     fontSize: 16,
-    lineHeight: 1.75,
+    lineHeight: 1.6,
     tabSize: 2,
     lineWrapping: true,
     showLineNumbers: false,
@@ -45,7 +51,8 @@ export const DEFAULT_SETTINGS: Settings = {
     sidebarVisible: true,
     sidebarWidth: 260,
     contentWidth: 'narrow',
-    showStatusBar: true
+    showStatusBar: true,
+    customTheme: ''
   },
   export: {
     html: {
@@ -103,8 +110,16 @@ export function normalizeSettings(input: unknown): Settings {
     input
   ) as unknown as Settings
   const editor = merged.editor
+  if (
+    merged.version < SETTINGS_VERSION &&
+    (editor.fontFamily === LEGACY_FONT_STACK || editor.fontFamily.includes('-apple-system'))
+  ) {
+    editor.fontFamily = EDITOR_FONT_STACK
+  }
+  if (merged.version < SETTINGS_VERSION && editor.lineHeight === 1.75) editor.lineHeight = 1.6
+  merged.version = SETTINGS_VERSION
   editor.fontSize = clampNumber(editor.fontSize, 16, 12, 24)
-  editor.lineHeight = clampNumber(editor.lineHeight, 1.75, 1.4, 2.2)
+  editor.lineHeight = clampNumber(editor.lineHeight, 1.6, 1.4, 2.2)
   editor.tabSize = Math.round(clampNumber(editor.tabSize, 2, 2, 4))
   editor.fontSizeZoom = clampNumber(editor.fontSizeZoom, 1, 0.5, 2)
   const files = merged.files

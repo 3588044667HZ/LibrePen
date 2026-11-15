@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS, mergeSettings, normalizeSettings } from '../src/shared/settings'
+import {
+  DEFAULT_SETTINGS,
+  SETTINGS_VERSION,
+  mergeSettings,
+  normalizeSettings
+} from '../src/shared/settings'
 import type { Settings } from '../src/shared/types'
 
 interface Base {
@@ -13,7 +18,7 @@ const base: Base = { a: 1, nested: { x: 1, y: 2 }, list: [1, 2] }
 
 describe('DEFAULT_SETTINGS', () => {
   it('exposes stable defaults', () => {
-    expect(DEFAULT_SETTINGS.version).toBe(1)
+    expect(DEFAULT_SETTINGS.version).toBe(SETTINGS_VERSION)
     expect(DEFAULT_SETTINGS.general.language).toBe('zh-CN')
     expect(DEFAULT_SETTINGS.editor.fontSize).toBe(16)
     expect(DEFAULT_SETTINGS.files.recentLimit).toBe(50)
@@ -159,7 +164,7 @@ describe('normalizeSettings', () => {
       editor: { fontSize: 'big', lineHeight: Number.NaN, tabSize: Number.POSITIVE_INFINITY }
     })
     expect(settings.editor.fontSize).toBe(16)
-    expect(settings.editor.lineHeight).toBe(1.75)
+    expect(settings.editor.lineHeight).toBe(1.6)
     expect(settings.editor.tabSize).toBe(2)
   })
 
@@ -206,7 +211,21 @@ describe('normalizeSettings', () => {
     expect(DEFAULT_SETTINGS.appearance.sidebarWidth).toBe(260)
   })
 
-  it('preserves an explicit version value', () => {
-    expect(normalizeSettings({ version: 2 }).version).toBe(2)
+  it('stamps the current settings version', () => {
+    expect(normalizeSettings({ version: 1 }).version).toBe(SETTINGS_VERSION)
+  })
+
+  it('migrates legacy font and line height from version 1', () => {
+    const settings = normalizeSettings({
+      version: 1,
+      editor: {
+        fontFamily:
+          '"Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif',
+        lineHeight: 1.75
+      }
+    })
+    expect(settings.version).toBe(SETTINGS_VERSION)
+    expect(settings.editor.fontFamily).toContain('"Open Sans"')
+    expect(settings.editor.lineHeight).toBe(1.6)
   })
 })

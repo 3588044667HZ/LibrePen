@@ -34,6 +34,14 @@ CommonMark + GFM（表格、任务列表、删除线、自动链接）+ Typora �
 - `[^note]` 脚注引用、emoji 短代码（P1）
 - 原始 HTML：编辑区按源码显示；导出前 DOMPurify 白名单（P1 内嵌预览）
 
+## 1.3 块级 Widget 的 CM6 约束
+
+CM6 禁止 ViewPlugin 提供的装饰替换换行；因此表格/代码/公式/Mermaid/TOC/Front Matter 的块级装饰由 **StateField** 提供（`src/renderer/src/editor/blocks/blockState.ts`）。
+
+- `blockState` 收集块范围，按 `blockEdit` 状态决定渲染或显示源码。
+- 点击块内「编辑源码」或 `revealPosition` 时，派发 `setBlockEdit`，块 Widget 移除、源码展开；选择移出后自动恢复。
+- 行内装饰仍由 ViewPlugin 处理，并跳过已渲染的块范围，避免重叠。
+
 ## 2. 实时预览（Live Preview）
 
 ### 2.1 原则
@@ -59,8 +67,8 @@ CommonMark + GFM（表格、任务列表、删除线、自动链接）+ Typora �
 | 图片 `![a](s)` | 渲染图片 Widget | 显示源码 | replace widget，原子 |
 | 行内数学 `$x$` | KaTeX Widget | 显示 `$x$` | replace widget，原子 |
 | 块数学 `$$...$$` | 块级 KaTeX Widget，点击进入 | 源码 + 行号 | block widget（P0 用行装饰 + 折叠 fence） |
-| 代码围栏 | 隐藏 fence 行，容器底色，语法高亮 | 显示 fence 行 | line decoration；语言高亮由 Lezer |
-| 表格 | 保持等宽源码 + 边框样式（P0）；P1 渲染表格 Widget | – | P1 |
+| 代码围栏 | 渲染只读高亮块；点击进入内嵌 CM6 动态高亮编辑 | 显示 fence 行 | 内嵌 EditorView + language-data；点击外部提交 |
+| 表格 | 渲染 `TableWidget`；单元格内联 Markdown（code/strong/em/link）；面板编辑 | – | P1 |
 | 任务列表 `- [x]` | 可点击复选框，隐藏 `- [x]` | 显示源码 | replace widget |
 | 水平线 `---` | 渲染 `<hr>` Widget | 显示源码 | replace widget |
 | 引用 `> ` | 左侧竖线 + 缩进，保留 `>` 淡显 | 正常 | line decoration（不隐藏，Typora 同款） |
@@ -149,7 +157,7 @@ resolveImageSrc(raw, docDir) => {
 |---|---|
 | 新建 / 打开 / 打开文件夹 | Ctrl+N / Ctrl+O / Ctrl+Shift+O |
 | 保存 / 另存为 | Ctrl+S / Ctrl+Shift+S |
-| 查找 / 替换 | Ctrl+F / Ctrl+H |
+| 快速打开 / 查找 / 替换 | Ctrl+P / Ctrl+F / Ctrl+H |
 | 粗体 / 斜体 / 下划线 / 行内代码 | Ctrl+B / Ctrl+I / Ctrl+U / Ctrl+Shift+` |
 | 删除线 / 高亮 | Alt+Shift+5 / Ctrl+Shift+H |
 | 标题 1..6 / 正文 | Ctrl+1..6 / Ctrl+0 |
@@ -160,6 +168,8 @@ resolveImageSrc(raw, docDir) => {
 | 链接 / 图片 | Ctrl+K / Ctrl+Shift+I |
 | 表格 / 水平线 | Ctrl+T / Ctrl+Shift+R |
 | 源码模式 / 侧栏 | Ctrl+/ / Ctrl+Shift+L |
+| 专注 / 打字机 | F8 / F9 |
+| 打印 | Ctrl+Shift+P |
 | 设置 | Ctrl+, |
 | 放大 / 缩小 / 重置 | Ctrl+Shift+= / Ctrl+Shift+- / Ctrl+Shift+0 |
 
@@ -177,9 +187,10 @@ resolveImageSrc(raw, docDir) => {
 
 ## 5. 源码模式
 
-- 关闭 `livePreview` 与排版装饰，保留行号与语法高亮。
-- 切换不改变文档与撤销历史；滚动位置尽量映射到相同行。
-- 状态栏显示「源码」标记；`Ctrl+/` 切换。
+- 顶栏 `bi-code-slash` 图标或 `Ctrl+/` 切换；图标 active 表示当前为源码模式。
+- 关闭 `livePreview` 与块级 Widget，保留原生 Markdown 源码、语法高亮与等宽字体。
+- 切换不改变文档与撤销历史；再次切回恢复块渲染。
+- 状态写入 `localStorage('librepen:source-mode')`，重启保持；打开新文件不强制退出源码模式。
 
 ## 6. 查找替换
 

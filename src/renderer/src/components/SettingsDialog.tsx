@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Settings } from '@shared/types'
+import type { Settings, ThemeInfo } from '@shared/types'
 
 interface SettingsDialogProps {
   open: boolean
@@ -14,6 +14,11 @@ type Tab = 'general' | 'editor' | 'files' | 'appearance' | 'export' | 'advanced'
 
 export function SettingsDialog(props: SettingsDialogProps) {
   const [tab, setTab] = useState<Tab>('general')
+  const [themes, setThemes] = useState<ThemeInfo[]>([])
+
+  const refreshThemes = (): void => {
+    void window.api.themes.list().then(setThemes)
+  }
 
   useEffect(() => {
     if (!props.open) return
@@ -21,6 +26,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       if (event.key === 'Escape') props.onClose()
     }
     window.addEventListener('keydown', onKey)
+    refreshThemes()
     return () => window.removeEventListener('keydown', onKey)
   }, [props.open, props.onClose])
 
@@ -167,6 +173,18 @@ export function SettingsDialog(props: SettingsDialogProps) {
                   onChange={(value) => patchEditor({ spellcheck: value })}
                 />
               </Row>
+              <Row label="专注模式" hint="淡化当前段落以外的内容">
+                <Toggle
+                  checked={settings.editor.focusMode}
+                  onChange={(value) => patchEditor({ focusMode: value })}
+                />
+              </Row>
+              <Row label="打字机模式" hint="光标始终保持在视口中央">
+                <Toggle
+                  checked={settings.editor.typewriterMode}
+                  onChange={(value) => patchEditor({ typewriterMode: value })}
+                />
+              </Row>
               <Row label="默认换行符">
                 <select
                   value={settings.editor.defaultEol}
@@ -285,31 +303,41 @@ export function SettingsDialog(props: SettingsDialogProps) {
                   <option value="dark">深色</option>
                 </select>
               </Row>
+              <Row label="自定义主题" hint="userData/themes 下的 CSS 文件">
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <select
+                    value={settings.appearance.customTheme}
+                    onChange={(event) => patchAppearance({ customTheme: event.target.value })}
+                  >
+                    <option value="">无</option>
+                    {themes
+                      .filter((theme) => !theme.isUserFile)
+                      .map((theme) => (
+                        <option key={theme.name} value={theme.name}>
+                          {theme.name}
+                        </option>
+                      ))}
+                    {settings.appearance.customTheme &&
+                    !themes.some((theme) => theme.name === settings.appearance.customTheme) ? (
+                      <option value={settings.appearance.customTheme}>
+                        {settings.appearance.customTheme}
+                      </option>
+                    ) : null}
+                  </select>
+                  <button className="btn" onClick={refreshThemes}>
+                    刷新
+                  </button>
+                  <button className="btn" onClick={() => void window.api.themes.openFolder()}>
+                    打开目录
+                  </button>
+                </div>
+              </Row>
               <Row label="侧栏宽度">
                 <NumberInput
                   value={settings.appearance.sidebarWidth}
                   min={240}
                   max={400}
                   onChange={(value) => patchAppearance({ sidebarWidth: value })}
-                />
-              </Row>
-              <Row label="内容宽度">
-                <select
-                  value={settings.appearance.contentWidth}
-                  onChange={(event) =>
-                    patchAppearance({
-                      contentWidth: event.target.value as Settings['appearance']['contentWidth']
-                    })
-                  }
-                >
-                  <option value="narrow">窄（860px）</option>
-                  <option value="wide">宽（1200px）</option>
-                </select>
-              </Row>
-              <Row label="显示状态栏">
-                <Toggle
-                  checked={settings.appearance.showStatusBar}
-                  onChange={(value) => patchAppearance({ showStatusBar: value })}
                 />
               </Row>
             </>

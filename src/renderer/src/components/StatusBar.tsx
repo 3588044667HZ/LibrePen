@@ -7,13 +7,17 @@ interface StatusBarProps {
   eol: 'lf' | 'crlf'
   dirty: boolean
   sourceMode: boolean
+  focusMode: boolean
+  typewriterMode: boolean
   hasDoc: boolean
   onToggleSource(): void
+  onToggleFocus(): void
+  onToggleTypewriter(): void
 }
 
 export function StatusBar(props: StatusBarProps) {
   return (
-    <footer className="statusbar">
+    <footer className="statusbar ty-footer">
       <span>{props.stats.words} 字</span>
       <span>{props.stats.chars} 字符</span>
       <span>{props.stats.lines} 行</span>
@@ -27,6 +31,20 @@ export function StatusBar(props: StatusBarProps) {
           <span>{props.encoding}</span>
           <span>{props.eol === 'crlf' ? 'CRLF' : 'LF'}</span>
           <span>{props.dirty ? '未保存' : '已保存'}</span>
+          <button
+            className={props.focusMode ? 'active' : ''}
+            onClick={props.onToggleFocus}
+            title="专注模式 (F8)"
+          >
+            专注
+          </button>
+          <button
+            className={props.typewriterMode ? 'active' : ''}
+            onClick={props.onToggleTypewriter}
+            title="打字机模式 (F9)"
+          >
+            打字机
+          </button>
           <button
             className={props.sourceMode ? 'active' : ''}
             onClick={props.onToggleSource}

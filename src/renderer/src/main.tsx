@@ -1,9 +1,16 @@
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import 'katex/dist/katex.min.css'
+import 'bootstrap-icons/font/bootstrap-icons.css'
+import '@fontsource/open-sans/latin-400.css'
+import '@fontsource/open-sans/latin-700.css'
+import '@fontsource/open-sans/latin-400-italic.css'
+import '@fontsource/open-sans/latin-700-italic.css'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/sidebar.css'
 import './styles/editor.css'
+import './styles/table.css'
+import './styles/quickopen.css'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(<App />)

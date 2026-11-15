@@ -2,7 +2,8 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
-  useRef
+  useRef,
+  useState
 } from 'react'
 import { Compartment, EditorState } from '@codemirror/state'
 import {
@@ -40,6 +41,9 @@ import {
 } from '@shared/markdown'
 import { livePreview } from './livePreview'
 import { editorTheme } from './theme'
+import { findBlockAt, setBlockEdit } from './blocks/blockState'
+import { focusModeExtension, typewriterModeExtension } from './effects'
+import { markdownAutocomplete } from './autocomplete'
 
 export interface EditorHandle {
   getContent(): string
@@ -67,6 +71,7 @@ interface EditorProps {
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(props, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const propsRef = useRef(props)
   propsRef.current = props
 
@@ -77,6 +82,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
     theme: new Compartment(),
     live: new Compartment(),
     autoPair: new Compartment(),
+    focus: new Compartment(),
+    typewriter: new Compartment(),
     spellcheck: new Compartment()
   }).current
 
@@ -125,9 +132,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
         if (!view) return
         const lineInfo = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines))
         const anchor = Math.min(lineInfo.to, lineInfo.from + Math.max(0, column - 1))
+        const block = findBlockAt(view.state, anchor)
         view.dispatch({
           selection: { anchor, head: Math.min(lineInfo.to, anchor + length) },
-          effects: EditorView.scrollIntoView(anchor, { y: 'center' })
+          effects: block
+            ? [setBlockEdit.of({ from: block.from, to: block.to }), EditorView.scrollIntoView(anchor, { y: 'center' })]
+            : EditorView.scrollIntoView(anchor, { y: 'center' })
         })
         view.focus()
       },
@@ -135,9 +145,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
         const view = viewRef.current
         if (!view) return
         const lineInfo = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines))
+        const block = findBlockAt(view.state, lineInfo.from)
         view.dispatch({
           selection: { anchor: lineInfo.from },
-          effects: EditorView.scrollIntoView(lineInfo.from, { y: 'start' })
+          effects: block
+            ? [setBlockEdit.of({ from: block.from, to: block.to }), EditorView.scrollIntoView(lineInfo.from, { y: 'start' })]
+            : EditorView.scrollIntoView(lineInfo.from, { y: 'start' })
         })
         view.focus()
       }
@@ -161,6 +174,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
           dropCursor(),
           search({ top: true }),
           placeholderExt('开始写作…'),
+          EditorView.contentAttributes.of({ id: 'write' }),
+          markdownAutocomplete(),
           markdown({ base: markdownLanguage, codeLanguages: languages }),
           compartments.tabSize.of(EditorState.tabSize.of(settings.editor.tabSize)),
           compartments.wrap.of(settings.editor.lineWrapping ? EditorView.lineWrapping : []),
@@ -171,11 +186,14 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
               ? livePreview({
                   docPath: propsRef.current.docPath,
                   inlineMath: settings.editor.inlineMath,
+                  theme: propsRef.current.theme,
                   resolveImage: window.api.files.resolveImage
                 })
               : []
           ),
           compartments.autoPair.of(settings.editor.autoPair ? closeBrackets() : []),
+          compartments.focus.of(settings.editor.focusMode ? focusModeExtension() : []),
+          compartments.typewriter.of(settings.editor.typewriterMode ? typewriterModeExtension() : []),
           compartments.spellcheck.of(
             EditorView.contentAttributes.of({
               spellcheck: settings.editor.spellcheck ? 'true' : 'false'
@@ -203,7 +221,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
           }),
           EditorView.domEventHandlers({
             paste: (event) => handlePaste(event),
-            drop: (event) => handleDrop(event)
+            drop: (event) => handleDrop(event),
+            contextmenu: (event) => {
+              event.preventDefault()
+              setContextMenu({
+                x: Math.min(event.clientX, window.innerWidth - 220),
+                y: Math.min(event.clientY, window.innerHeight - 260)
+              })
+              return true
+            }
           })
         ]
       })
@@ -234,11 +260,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
             ? livePreview({
                 docPath: props.docPath,
                 inlineMath: settings.editor.inlineMath,
+                theme: props.theme,
                 resolveImage: window.api.files.resolveImage
               })
             : []
         ),
         compartments.autoPair.reconfigure(settings.editor.autoPair ? closeBrackets() : []),
+        compartments.focus.reconfigure(settings.editor.focusMode ? focusModeExtension() : []),
+        compartments.typewriter.reconfigure(
+          settings.editor.typewriterMode ? typewriterModeExtension() : []
+        ),
         compartments.spellcheck.reconfigure(
           EditorView.contentAttributes.of({
             spellcheck: settings.editor.spellcheck ? 'true' : 'false'
@@ -300,7 +331,59 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
     }
   }
 
-  return <div ref={containerRef} className="editor-host" />
+  const runContext = (id: string): void => {
+    setContextMenu(null)
+    const view = viewRef.current
+    if (view) runCommand(view, id)
+  }
+
+  return (
+    <>
+      <div
+        ref={containerRef}
+        className={`editor-host ${props.sourceMode ? 'source-mode' : ''}`}
+      />
+      {contextMenu ? (
+        <div
+          className="editor-context-backdrop"
+          onMouseDown={() => setContextMenu(null)}
+          onPointerDown={() => setContextMenu(null)}
+          onClick={() => setContextMenu(null)}
+        >
+          <div
+            className="editor-context-menu"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {[
+              ['bold', '加粗'],
+              ['italic', '斜体'],
+              ['strike', '删除线'],
+              ['inline-code', '行内代码'],
+              ['highlight', '高亮'],
+              ['quote', '引用'],
+              ['bullet', '无序列表'],
+              ['ordered', '有序列表'],
+              ['task', '任务列表'],
+              ['code-fence', '代码块'],
+              ['math-block', '公式块'],
+              ['table', '表格'],
+              ['hr', '水平线'],
+              ['clear-format', '清除格式'],
+              ['undo', '撤销'],
+              ['redo', '重做']
+            ].map(([id, label]) => (
+              <button key={id} type="button" onClick={() => runContext(id)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </>
+  )
 })
 
 function runCommand(view: EditorView, id: string, args?: unknown): void {

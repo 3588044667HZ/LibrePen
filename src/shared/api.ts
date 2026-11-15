@@ -14,9 +14,12 @@ import type {
   RecentStore,
   Result,
   SaveRequest,
+  QuickFile,
   SearchRequest,
   SearchResponse,
-  Settings
+  Settings,
+  ThemeInfo,
+  ThemeParts
 } from './types'
 
 export type UnsavedChoice = 'save' | 'discard' | 'cancel'
@@ -74,6 +77,14 @@ export interface LibrePenApi {
   search: {
     content(request: SearchRequest, requestId: number): Promise<Result<SearchResponse>>
     cancel(requestId: number): Promise<void>
+  }
+  themes: {
+    list(): Promise<ThemeInfo[]>
+    read(name: string): Promise<ThemeParts>
+    openFolder(): Promise<void>
+  }
+  documents: {
+    list(root: string): Promise<QuickFile[]>
   }
   export: {
     html(request: ExportHtmlRequest): Promise<Result<string | null>>

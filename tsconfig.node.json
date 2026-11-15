@@ -26,6 +26,7 @@
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",
+    "src/renderer/src/editor/blocks/tableModel.ts",
     "tests/**/*.ts"
   ]
 }

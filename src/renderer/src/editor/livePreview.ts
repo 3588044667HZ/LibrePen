@@ -9,10 +9,18 @@ import {
   type ViewUpdate
 } from '@codemirror/view'
 import katex from 'katex'
+import { createBlockLayer, type BlockLayer } from './blocks/blockState'
+import { createTableWidget } from './blocks/tableWidget'
+import { createCodeWidget } from './blocks/codeWidget'
+import { createMathWidget } from './blocks/mathWidget'
+import { createMermaidWidget } from './blocks/mermaidWidget'
+import { createTocWidget } from './blocks/tocWidget'
+import { createFrontMatterWidget } from './blocks/frontMatterWidget'
 
 export interface LivePreviewOptions {
   docPath: string | null
   inlineMath: boolean
+  theme: 'light' | 'dark'
   resolveImage: (docPath: string | null, src: string) => string
 }
 
@@ -28,33 +36,52 @@ interface Built {
 }
 
 export function livePreview(options: LivePreviewOptions) {
+  const layer = createBlockLayer(
+    {
+      docPath: options.docPath,
+      theme: options.theme,
+      resolveImage: options.resolveImage
+    },
+    {
+      table: createTableWidget,
+      code: createCodeWidget,
+      math: createMathWidget,
+      mermaid: createMermaidWidget,
+      toc: createTocWidget,
+      frontmatter: createFrontMatterWidget
+    }
+  )
+
   class LivePreviewPlugin {
     decorations: DecorationSet
     atomic: DecorationSet
 
     constructor(view: EditorView) {
-      const built = buildDecorations(view, options)
+      const built = buildDecorations(view, options, layer)
       this.decorations = built.decorations
       this.atomic = built.atomic
     }
 
     update(update: ViewUpdate): void {
       if (update.docChanged || update.selectionSet || update.viewportChanged || update.focusChanged) {
-        const built = buildDecorations(update.view, options)
+        const built = buildDecorations(update.view, options, layer)
         this.decorations = built.decorations
         this.atomic = built.atomic
       }
     }
   }
 
-  return ViewPlugin.fromClass(LivePreviewPlugin, {
-    decorations: (plugin) => plugin.decorations,
-    provide: (plugin) =>
-      EditorView.atomicRanges.of((view) => view.plugin(plugin)?.atomic ?? Decoration.none)
-  })
+  return [
+    layer.extension,
+    ViewPlugin.fromClass(LivePreviewPlugin, {
+      decorations: (plugin) => plugin.decorations,
+      provide: (plugin) =>
+        EditorView.atomicRanges.of((view) => view.plugin(plugin)?.atomic ?? Decoration.none)
+    })
+  ]
 }
 
-function buildDecorations(view: EditorView, options: LivePreviewOptions): Built {
+function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: BlockLayer): Built {
   const state = view.state
   const doc = state.doc
   const decorations: Range<Decoration>[] = []
@@ -66,6 +93,11 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions): Built 
   const viewport = view.viewport
   const tree = syntaxTree(state)
   const frontMatter = frontMatterRange(state)
+  const renderedBlocks = layer.rendered(state)
+  const inRenderedBlock = (pos: number): boolean =>
+    renderedBlocks.some((block) => pos >= block.from && pos < block.to)
+  const overlapsRenderedBlock = (from: number, to: number): boolean =>
+    renderedBlocks.some((block) => from < block.to && to > block.from)
 
   const withinLine = (from: number, to: number): boolean => to <= doc.lineAt(from).to
   const inOpaque = (from: number, to: number): boolean =>
@@ -117,6 +149,7 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions): Built 
     enter: (node) => {
       const name = node.name
       if (name === 'Document') return true
+      if (overlapsRenderedBlock(node.from, node.to)) return false
       if (frontMatter && node.from < frontMatter.to && node.to > frontMatter.from) return false
       if (name === 'URL' || name === 'Autolink' || name === 'LinkTitle') {
         opaque.push({ from: node.from, to: node.to })
@@ -148,7 +181,9 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions): Built 
         const level = Number(name.slice(-1))
         const line = doc.lineAt(node.from)
         addLineClass(line.from, `cm-md-h${level}`)
-        if (!touches(line.from, line.to)) {
+        const selection = state.selection.main
+        const atLineStart = selection.empty && selection.head === line.from
+        if (!touches(line.from, line.to) || atLineStart) {
           let child = node.node.firstChild
           while (child) {
             if (child.name === 'HeaderMark') {
@@ -164,6 +199,10 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions): Built 
       if (name === 'SetextHeading1' || name === 'SetextHeading2') {
         const line = doc.lineAt(node.from)
         addLineClass(line.from, name === 'SetextHeading1' ? 'cm-md-h1' : 'cm-md-h2')
+        const mark = node.node.lastChild
+        if (mark?.name === 'HeaderMark' && !touches(node.from, node.to)) {
+          addHidden(mark.from, mark.to)
+        }
         return true
       }
       if (name === 'HorizontalRule') {
@@ -252,7 +291,8 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions): Built 
     }
   })
 
-  if (frontMatter) {
+  const frontMatterRendered = renderedBlocks.some((block) => block.kind === 'frontmatter')
+  if (frontMatter && !frontMatterRendered) {
     const startLine = doc.lineAt(frontMatter.from).number
     const endLine = doc.lineAt(frontMatter.to).number
     for (let n = startLine; n <= endLine; n++) addLineClass(doc.line(n).from, 'cm-md-frontmatter')
@@ -265,6 +305,7 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions): Built 
     const line = doc.line(n)
     const text = line.text
     if (!text) continue
+    if (inRenderedBlock(line.from)) continue
     if (frontMatter && line.from >= frontMatter.from && line.from < frontMatter.to) continue
 
     const blocked = insideExcluded(line.from)
@@ -280,8 +321,20 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions): Built 
     }
     if (inMathBlock) continue
 
-    if (/^\s{0,3}>/.test(text)) addLineClass(line.from, 'cm-md-quote-line')
+    const quote = /^(\s{0,3}(?:>\s?)+)/.exec(text)
+    if (quote) {
+      addLineClass(line.from, 'cm-md-quote-line')
+      if (!touches(line.from, line.to)) addHidden(line.from, line.from + quote[1].length)
+    }
     if (/^\s{0,3}(?:[-*+]|\d+[.)])\s+/.test(text)) addLineClass(line.from, 'cm-md-list-line')
+    const bulletBase = line.from + (quote ? quote[1].length : 0)
+    const bulletText = quote ? text.slice(quote[1].length) : text
+    const bullet = /^(\s*)([-*+])(\s+)(?!\[[ xX]\])/.exec(bulletText)
+    if (bullet) {
+      const from = bulletBase + bullet[1].length
+      const to = from + 1 + bullet[3].length
+      addReplace(from, to, new ListBulletWidget(from, Math.floor(bullet[1].length / 2)))
+    }
     if (/^\s*\|/.test(text)) addLineClass(line.from, 'cm-md-table-line')
 
     if (options.inlineMath) {
@@ -429,6 +482,31 @@ class MathInlineWidget extends WidgetType {
     }
     selectOnMouseDown(wrapper, view, this.pos)
     return wrapper
+  }
+
+  ignoreEvent(): boolean {
+    return true
+  }
+}
+
+class ListBulletWidget extends WidgetType {
+  constructor(
+    private readonly pos: number,
+    private readonly depth: number
+  ) {
+    super()
+  }
+
+  eq(other: WidgetType): boolean {
+    return other instanceof ListBulletWidget && other.pos === this.pos && other.depth === this.depth
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const bullet = document.createElement('span')
+    bullet.className = 'cm-md-list-bullet'
+    bullet.textContent = this.depth <= 0 ? '•' : this.depth === 1 ? '◦' : '▪'
+    selectOnMouseDown(bullet, view, this.pos)
+    return bullet
   }
 
   ignoreEvent(): boolean {

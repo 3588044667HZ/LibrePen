@@ -1,7 +1,13 @@
 import { EditorView } from '@codemirror/view'
-import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { tags } from '@lezer/highlight'
 import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark'
 import type { Settings } from '@shared/types'
+
+const markdownOverride = HighlightStyle.define([
+  { tag: tags.heading, textDecoration: 'none', fontWeight: 'inherit' },
+  { tag: tags.link, textDecoration: 'none' }
+])
 
 export function editorTheme(settings: Settings, dark: boolean) {
   const fontSize = settings.editor.fontSize * settings.editor.fontSizeZoom
@@ -11,7 +17,7 @@ export function editorTheme(settings: Settings, dark: boolean) {
         '&': {
           height: '100%',
           fontSize: `${fontSize}px`,
-          color: 'var(--fg)',
+          color: 'var(--editor-fg)',
           backgroundColor: 'var(--bg)'
         },
         '&.cm-focused': { outline: 'none' },
@@ -21,13 +27,13 @@ export function editorTheme(settings: Settings, dark: boolean) {
           lineHeight: 'var(--editor-line-height)'
         },
         '.cm-content': {
-          maxWidth: 'var(--content-width)',
+          maxWidth: 'none',
           width: '100%',
-          margin: '0 auto',
-          padding: '28px 0 45vh',
+          margin: '0',
+          padding: '18px 0 45vh',
           caretColor: 'var(--accent)'
         },
-        '.cm-line': { padding: '0 40px' },
+        '.cm-line': { padding: '0 16px' },
         '.cm-gutters': {
           backgroundColor: 'var(--bg)',
           color: 'var(--fg-muted)',
@@ -75,6 +81,7 @@ export function editorTheme(settings: Settings, dark: boolean) {
       },
       { dark }
     ),
-    syntaxHighlighting(dark ? oneDarkHighlightStyle : defaultHighlightStyle, { fallback: true })
+    syntaxHighlighting(dark ? oneDarkHighlightStyle : defaultHighlightStyle, { fallback: true }),
+    syntaxHighlighting(markdownOverride)
   ]
 }

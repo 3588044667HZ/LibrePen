@@ -60,8 +60,12 @@ function Directory({ path, name, depth, activePath, defaultOpen, onOpenFile }: D
         onClick={() => setOpen((value) => !value)}
         title={path}
       >
-        <span className="twisty">{open ? '▾' : '▸'}</span>
-        <span className="tree-icon">▰</span>
+        <span className="twisty">
+          <i className={`bi ${open ? 'bi-chevron-down' : 'bi-chevron-right'}`} aria-hidden="true" />
+        </span>
+        <span className="tree-icon">
+          <i className={`bi ${open ? 'bi-folder2-open' : 'bi-folder2'}`} aria-hidden="true" />
+        </span>
         <span className="tree-name">{name}</span>
       </button>
       {open ? (
@@ -91,7 +95,9 @@ function Directory({ path, name, depth, activePath, defaultOpen, onOpenFile }: D
                 title={entry.path}
               >
                 <span className="twisty" />
-                <span className="tree-icon">·</span>
+                <span className="tree-icon">
+                  <i className="bi bi-file-earmark-text" aria-hidden="true" />
+                </span>
                 <span className="tree-name">{entry.name}</span>
               </button>
             )

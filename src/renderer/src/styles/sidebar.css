@@ -269,3 +269,5 @@
     box-shadow: var(--shadow);
   }
 }
+
+.search-input, .search-options button, .search-result { border-radius: 0; }

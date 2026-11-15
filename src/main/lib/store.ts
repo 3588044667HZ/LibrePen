@@ -20,7 +20,7 @@ export class JsonStore<T> {
   read(): T {
     if (this.cache) return this.cache
     try {
-      const raw = fs.readFileSync(this.filePath, 'utf8')
+      const raw = fs.readFileSync(this.filePath, 'utf8').replace(/^\uFEFF/, '')
       const parsed: unknown = JSON.parse(raw)
       this.cache = this.normalize ? this.normalize(parsed) : (parsed as T)
     } catch (error) {

@@ -111,6 +111,7 @@ export function buildApplicationMenu(ctx: AppContext): Menu {
       label: '文件',
       submenu: [
         { label: '新建', accelerator: 'CmdOrCtrl+N', click: send('new-file') },
+        { label: '快速打开…', accelerator: 'CmdOrCtrl+P', click: send('quick-open') },
         { label: '打开…', accelerator: 'CmdOrCtrl+O', click: send('open-file') },
         { label: '打开文件夹…', accelerator: 'CmdOrCtrl+Shift+O', click: send('open-folder') },
         {
@@ -132,9 +133,11 @@ export function buildApplicationMenu(ctx: AppContext): Menu {
           submenu: [
             { label: 'HTML…', accelerator: 'CmdOrCtrl+Shift+E', click: send('export-html') },
             { label: 'PDF…', click: send('export-pdf') },
-            { label: '打印…', accelerator: 'CmdOrCtrl+P', click: send('print') }
+            { label: '打印…', accelerator: 'CmdOrCtrl+Shift+P', click: send('print') }
           ]
         },
+        { type: 'separator' },
+        { label: '设置…', accelerator: 'CmdOrCtrl+,', click: send('settings') },
         { type: 'separator' },
         { label: '关闭窗口', accelerator: 'CmdOrCtrl+W', click: () => ctx.window?.close() },
         { label: '退出', accelerator: 'Alt+F4', click: () => app.quit() }
@@ -199,6 +202,8 @@ export function buildApplicationMenu(ctx: AppContext): Menu {
       submenu: [
         { label: '切换侧栏', accelerator: 'CmdOrCtrl+Shift+L', click: send('toggle-sidebar') },
         { label: '源码模式', accelerator: 'CmdOrCtrl+/', click: send('toggle-source') },
+        { label: '专注模式', accelerator: 'F8', click: send('toggle-focus') },
+        { label: '打字机模式', accelerator: 'F9', click: send('toggle-typewriter') },
         { type: 'separator' },
         {
           label: '主题',

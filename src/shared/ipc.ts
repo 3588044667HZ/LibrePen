@@ -40,6 +40,12 @@ export const IPC = {
   exportPdf: 'export:pdf',
   printDocument: 'print:document',
 
+  themesList: 'themes:list',
+  themesRead: 'themes:read',
+  themesOpen: 'themes:open',
+
+  documentsList: 'documents:list',
+
   clipboardReadImage: 'clipboard:read-image',
   clipboardReadText: 'clipboard:read-text',
   clipboardWriteText: 'clipboard:write-text',

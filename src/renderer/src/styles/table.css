@@ -1,0 +1,422 @@
+﻿.cm-table-block {
+  position: relative;
+  margin: 8px 0;
+  padding: 2px 0;
+}
+
+.cm-table-scroll {
+  overflow-x: auto;
+}
+
+.cm-table-render {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.95em;
+  table-layout: auto;
+}
+
+.cm-table-render th,
+.cm-table-render td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.cm-table-render th {
+  background: var(--bg-alt);
+  font-weight: 600;
+}
+
+.cm-table-render tbody tr:hover td {
+  background: var(--hover);
+}
+
+.cm-table-render td {
+  cursor: text;
+}
+
+.cm-table-render .cm-table-align-left,
+.cm-table-render .cm-table-align-none {
+  text-align: left;
+}
+
+.cm-table-render .cm-table-align-center {
+  text-align: center;
+}
+
+.cm-table-render .cm-table-align-right {
+  text-align: right;
+}
+
+.cm-block-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px 6px;
+}
+
+.cm-table-btn {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-alt);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.cm-table-btn:hover {
+  background: var(--hover);
+  border-color: var(--accent);
+}
+
+.cm-table-btn:active {
+  background: var(--active);
+}
+
+.cm-table-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.cm-table-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.cm-table-btn-primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  filter: brightness(1.08);
+}
+
+.cm-table-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  width: min(720px, 100%);
+  max-height: 70vh;
+  overflow: auto;
+  padding: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.cm-table-panel,
+.cm-table-panel * {
+  box-sizing: border-box;
+}
+
+.cm-table-panel-grid {
+  display: grid;
+  gap: 6px;
+  align-items: center;
+}
+
+.cm-table-panel-input {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-alt);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+}
+
+.cm-table-panel-input-header {
+  background: var(--code-bg);
+  font-weight: 600;
+}
+
+.cm-table-panel-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.cm-table-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.cm-table-block.cm-table-editing .cm-table-scroll {
+  display: none;
+}
+
+.cm-table-block.cm-table-editing .cm-table-panel {
+  position: static;
+  width: 100%;
+  max-height: none;
+  margin-top: 4px;
+  box-shadow: none;
+}
+
+.cm-table-block {
+  width: 100%;
+  margin: 4px 0;
+  padding: 0;
+}
+.cm-table-scroll { overflow-x: auto; }
+.cm-table-render {
+  width: auto;
+  min-width: min(100%, 320px);
+  max-width: 100%;
+}
+.cm-table-render th {
+  background: transparent;
+}
+.cm-table-render tbody tr:hover td {
+  background: transparent;
+}
+.cm-table-block .cm-block-toolbar {
+  padding: 0 2px;
+  min-height: 24px;
+  opacity: 0.55;
+}
+.cm-table-block:hover > .cm-block-toolbar,
+.cm-table-block .cm-block-toolbar:focus-within {
+  opacity: 1;
+}
+.cm-table-btn {
+  padding: 2px 4px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--fg-muted);
+  line-height: 18px;
+}
+.cm-table-btn:hover {
+  background: var(--hover);
+  border-color: transparent;
+  color: var(--fg);
+}
+.cm-table-btn .bi { font-size: 13px; }
+.cm-table-btn-primary { background: transparent; border-color: transparent; color: var(--accent); }
+.cm-table-btn-primary:hover { background: var(--hover); color: var(--accent); }
+.cm-table-panel {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 8px 0;
+  background: var(--bg-alt);
+}
+.cm-table-panel-actions {
+  border-top: none;
+  padding-top: 4px;
+  margin-top: 6px;
+}
+.cm-table-panel-input {
+  border-radius: 0;
+}
+.cm-table-panel-input:focus {
+  box-shadow: none;
+}
+.cm-table-block.cm-table-editing .cm-table-panel {
+  margin-top: 2px;
+}
+
+.cm-table-render {
+  width: 100%;
+  table-layout: auto;
+}
+.cm-table-render th,
+.cm-table-render td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.cm-table-render th {
+  white-space: nowrap;
+}
+.cm-table-render code {
+  padding: 0;
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 0.9em;
+  white-space: normal;
+}
+
+.cm-table-render th,
+.cm-table-render td {
+  position: relative;
+  overflow: hidden;
+}
+.cm-table-col-resizer,
+.cm-table-row-resizer {
+  position: absolute;
+  z-index: 2;
+  opacity: 0.12;
+  background: var(--accent);
+}
+.cm-table-col-resizer {
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+}
+.cm-table-row-resizer {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  cursor: row-resize;
+}
+.cm-table-render th:hover .cm-table-col-resizer,
+.cm-table-render td:hover .cm-table-col-resizer,
+.cm-table-render tr:hover .cm-table-row-resizer {
+  opacity: 0.45;
+}
+.cm-table-col-resizer:hover,
+.cm-table-row-resizer:hover {
+  opacity: 1 !important;
+}
+body.cm-table-resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+.cm-table-render {
+  font-family: var(--editor-font);
+  font-size: 1.03em;
+  line-height: 1.65;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.cm-table-render th,
+.cm-table-render td {
+  padding: 8px 13px;
+  vertical-align: top;
+  font-weight: 400;
+}
+.cm-table-render th {
+  background: transparent;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.cm-table-render code {
+  font-size: 0.95em;
+  letter-spacing: 0;
+}
+.cm-table-col-resizer,
+.cm-table-row-resizer {
+  opacity: 1;
+  background: transparent;
+}
+.cm-table-col-resizer::after,
+.cm-table-row-resizer::after {
+  content: '';
+  position: absolute;
+  background: transparent;
+}
+.cm-table-col-resizer::after {
+  top: 0;
+  bottom: 0;
+  right: 2px;
+  width: 1px;
+}
+.cm-table-row-resizer::after {
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 1px;
+}
+.cm-table-render th:hover .cm-table-col-resizer::after,
+.cm-table-render td:hover .cm-table-col-resizer::after,
+.cm-table-render tr:hover .cm-table-row-resizer::after {
+  background: var(--accent);
+}
+.cm-table-col-resizer:hover::after,
+.cm-table-row-resizer:hover::after {
+  background: var(--accent) !important;
+}
+
+.cm-table-render th {
+  font-weight: 600;
+}
+
+.cm-table-render {
+  font-family: var(--editor-font);
+  font-size: 1rem;
+  line-height: 1.6;
+  letter-spacing: normal;
+  color: var(--editor-fg);
+  border-collapse: collapse;
+  border-spacing: 0;
+  text-align: left;
+  word-break: normal;
+  -webkit-font-smoothing: antialiased;
+}
+.cm-table-render thead {
+  background: var(--table-header-bg);
+}
+.cm-table-render tbody tr:nth-child(even) {
+  background: var(--table-header-bg);
+}
+.cm-table-render th,
+.cm-table-render td {
+  border: 1px solid var(--table-border);
+  padding: 6px 13px;
+  vertical-align: top;
+  font-weight: 400;
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+.cm-table-render th {
+  font-weight: 700;
+  border-bottom: 0;
+  vertical-align: middle;
+}
+.cm-table-render code {
+  border: 1px solid var(--table-code-border);
+  border-radius: 3px;
+  background: var(--table-code-bg);
+  padding: 0 2px;
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+
+.cm-table-render {
+  table-layout: auto;
+  width: 100%;
+  max-width: 100%;
+}
+.cm-table-render th,
+.cm-table-render td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.cm-table-render th {
+  white-space: nowrap;
+}
+
+.cm-table-render th {
+  font-size: 0.95em;
+  font-weight: 600;
+  padding: 4px 8px;
+}
+.cm-table-render td {
+  padding: 6px 10px;
+}

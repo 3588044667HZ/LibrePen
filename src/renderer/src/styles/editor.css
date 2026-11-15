@@ -218,3 +218,83 @@
   font-weight: inherit;
   padding-top: 0;
 }
+
+.editor-context-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+}
+
+.editor-context-menu {
+  position: fixed;
+  min-width: 180px;
+  padding: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+
+.editor-context-menu button {
+  display: block;
+  width: 100%;
+  padding: 5px 9px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font-size: 13px;
+}
+
+.editor-context-menu button:hover {
+  background: var(--hover);
+}
+
+.cm-md-inline-code { border-radius: 0; }
+.cm-md-image img { border-radius: 0; }
+.cm-md-code-line:first-of-type,
+.cm-md-code-line:last-of-type { border-radius: 0; }
+.cm-md-quote-line { border-left: 2px solid var(--border); }
+.editor-context-menu {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--bg-alt);
+  padding: 4px 0;
+  min-width: 180px;
+}
+.editor-context-menu button {
+  border-radius: 0;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.source-mode .cm-content {
+  font-family: var(--mono);
+  font-size: 0.92em;
+}
+.source-mode .cm-line {
+  padding: 0 12px;
+}
+.source-mode .cm-md-h1,
+.source-mode .cm-md-h2,
+.source-mode .cm-md-h3,
+.source-mode .cm-md-h4,
+.source-mode .cm-md-h5,
+.source-mode .cm-md-h6 {
+  font-size: inherit;
+  font-weight: inherit;
+  padding-top: 0;
+}
+
+.cm-md-list-line { padding-left: 0; }
+.cm-md-list-bullet {
+  display: inline-block;
+  min-width: 1em;
+  margin-right: 0.15em;
+  color: var(--fg);
+  font-weight: 600;
+  text-align: center;
+  user-select: none;
+}

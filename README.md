@@ -6,17 +6,19 @@
 
 ## 当前状态
 
-`0.1.0`（MVP）。行内实时预览、文件工作流、侧栏、恢复草稿、导出 HTML/PDF 已可用；表格/代码块/公式块的块级可视化编辑在 Phase 2。
+`0.2.1`（P1 + 扁平化 UI）。块级编辑已加入：表格可视化面板、代码块/公式块/Mermaid/TOC/Front Matter 块组件、专注/打字机模式、快速打开、自定义主题目录。编辑界面采用顶栏菜单 + 全宽扁平布局，无状态栏、无多余卡片。详见 `docs/spec/10-p1-acceptance.md` 与 `docs/spec/11-flat-ui.md`。
 
 ## 功能
 
 - **实时预览**：隐藏 Markdown 标记，光标进入时还原；支持标题、粗体/斜体/删除线/高亮、行内代码、链接、图片、行内数学、任务列表、水平线。
-- **编辑**：CodeMirror 6、源码模式、撤销/重做、查找替换、自动配对、列表续行、标题/引用/列表/表格/代码块命令、Typora 常用快捷键。
-- **文件**：打开/保存/另存为、未命名文档、最近文件、文件夹树、UTF-8/UTF-16/GBK 等编码检测、CRLF/LF 与末尾换行保持、2 MB 渲染上限、原子写、外部修改冲突提示。
+- **块级编辑**：表格渲染 + 单元格内联 Markdown + 列宽/行高拖拽 + 行列表格/对齐面板；代码块点击进入内联动态高亮编辑（行号、实时语法高亮、点击外部提交、Esc 取消），也支持复制/编辑源码；KaTeX 公式块；Mermaid 懒渲染；TOC；Front Matter 元数据块；点击「编辑源码」回到 Markdown。
+- **编辑**：CodeMirror 6、源码模式（顶栏图标 / Ctrl+/，状态持久化）、撤销/重做、查找替换、自动配对、列表续行、标题/引用/列表/表格/代码块命令、右键格式菜单、Typora 常用快捷键。
+- **智能输入**：`:emoji` 补全、代码围栏语言补全。
+- **文件**：打开/保存/另存为、未命名文档、最近文件、文件夹树、快速打开（Ctrl+P）、UTF-8/UTF-16/GBK 等编码检测、CRLF/LF 与末尾换行保持、2 MB 渲染上限、原子写、外部修改冲突提示。
 - **导航**：侧栏文件树、实时大纲、文件夹全文搜索（大小写/整词/正则，有界结果）。
 - **恢复**：自动保存（默认关闭）、失焦/关闭恢复草稿、关闭前保存确认、窗口与会话恢复。
 - **导出**：自包含 HTML、Chromium PDF、打印。
-- **界面**：浅色/深色/跟随系统、可调字号与内容宽度、可拖拽侧栏、状态栏字数/光标/编码统计。
+- **界面**：顶部菜单（新建/打开/保存/导出/设置等）、Bootstrap Icons、全宽扁平编辑区、浅色/深色/跟随系统、专注/打字机模式、自定义主题（`userData/themes`）、可拖拽侧栏；编辑界面只保留编辑器与可选侧栏。
 - **安全**：`contextIsolation`、`sandbox`、无 Node 的渲染进程、CSP、`mdimg://` 图片白名单、导出 HTML 净化。
 
 ## 技术栈
@@ -26,6 +28,7 @@
 | 桌面 | Electron 45 |
 | 构建 | electron-vite 6 + Vite 8 + TypeScript 5.9 |
 | 壳层 UI | React 19 |
+| 图标 | Bootstrap Icons |
 | 编辑器 | CodeMirror 6 + Lezer |
 | 渲染/导出 | markdown-it、KaTeX、highlight.js、DOMPurify |
 | 测试 | Vitest |
@@ -61,14 +64,14 @@ recent.json         最近文件/文件夹
 session.json        上次文件/文件夹
 draftsRecover/      恢复草稿（*.md + index.json）
 logs/               运行日志
-themes/             用户主题（P1）
+themes/             用户主题 CSS（base.user.css / {theme}.user.css）
 ```
 
 不写入 Typora 安装目录；设置页提供「从 Typora 导入」兼容子集（字体、`keyBinding`）。
 
 ## 快捷键
 
-常用：`Ctrl+S` 保存、`Ctrl+O` 打开、`Ctrl+F/H` 查找/替换、`Ctrl+B/I` 粗体/斜体、`Ctrl+K` 链接、`Ctrl+1..6` 标题、`Ctrl+/` 源码模式、`Ctrl+Shift+L` 侧栏。
+常用：`Ctrl+S` 保存、`Ctrl+O` 打开、`Ctrl+P` 快速打开、`Ctrl+F/H` 查找/替换、`Ctrl+B/I` 粗体/斜体、`Ctrl+K` 链接、`Ctrl+1..6` 标题、`Ctrl+/` 源码模式、`Ctrl+Shift+L` 侧栏、`F8` 专注、`F9` 打字机。打印为 `Ctrl+Shift+P`。
 
 完整列表见 `docs/spec/02-editor-engine.md`。
 
@@ -81,10 +84,12 @@ themes/             用户主题（P1）
 - 导出：`docs/spec/05-export.md`
 - 路线图：`docs/spec/07-roadmap.md`
 - 功能矩阵：`docs/spec/09-feature-matrix.md`
+- P1 验收：`docs/spec/10-p1-acceptance.md`
+- 扁平化 UI：`docs/spec/11-flat-ui.md`
 
 ## 已知边界
 
-- 表格、代码围栏、公式块、Mermaid、TOC 目前是「源码 + 样式」，不是完全块级可视化编辑（Phase 2）。
+- 表格行列重排、单元格内直接光标编辑、脚注悬浮、图片缩放/上传、块拖拽排序尚未包含。
 - 不做授权/试用/遥测/云同步；不内置 Pandoc（后续检测外部安装）。
 - 原始 HTML 块按源码显示，导出时净化。
 

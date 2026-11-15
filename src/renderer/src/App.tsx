@@ -10,27 +10,26 @@ import type {
   AppInfo,
   DocPayload,
   DraftEntry,
+  QuickFile,
   RecentStore,
   SearchHit,
   Settings
 } from '@shared/types'
 import {
-  countWords,
   encodeMarkdownUrl,
   extractOutline,
   relativePath,
-  type OutlineItem,
-  type WordStats
+  type OutlineItem
 } from '@shared/markdown'
 import { Editor, type EditorHandle } from './editor/Editor'
 import { renderExportHtml } from './editor/exportHtml'
 import { TitleBar } from './components/TitleBar'
 import { Sidebar, type SidebarTab } from './components/Sidebar'
-import { StatusBar } from './components/StatusBar'
-import { Welcome } from './components/Welcome'
 import { SettingsDialog } from './components/SettingsDialog'
 import { PromptDialog } from './components/PromptDialog'
+import { QuickOpen } from './components/QuickOpen'
 import { Toast } from './components/Toast'
+import { applyThemeStyles } from './theme/ThemeLoader'
 
 interface PendingReveal {
   line: number
@@ -45,8 +44,6 @@ interface PromptState {
   onSubmit(value: string): void
 }
 
-const EMPTY_STATS: WordStats = { words: 0, chars: 0, lines: 0, readingMinutes: 0 }
-
 export default function App() {
   const [ready, setReady] = useState(false)
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
@@ -56,19 +53,26 @@ export default function App() {
   const [doc, setDoc] = useState<DocPayload | null>(null)
   const [docKey, setDocKey] = useState(0)
   const [dirty, setDirty] = useState(false)
-  const [sourceMode, setSourceMode] = useState(false)
+  const [sourceMode, setSourceMode] = useState(() => {
+    try {
+      return window.localStorage.getItem('librepen:source-mode') === '1'
+    } catch {
+      return false
+    }
+  })
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [sidebarWidth, setSidebarWidth] = useState(260)
   const [tab, setTab] = useState<SidebarTab>('files')
   const [folder, setFolder] = useState<string | null>(null)
   const [folderRefresh, setFolderRefresh] = useState(0)
   const [outline, setOutline] = useState<OutlineItem[]>([])
-  const [stats, setStats] = useState<WordStats>(EMPTY_STATS)
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
   const [systemDark, setSystemDark] = useState(false)
   const [toast, setToast] = useState<{ message: string; error: boolean } | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [prompt, setPrompt] = useState<PromptState | null>(null)
+  const [quickOpen, setQuickOpen] = useState(false)
+  const [quickFiles, setQuickFiles] = useState<QuickFile[]>([])
 
   const editorRef = useRef<EditorHandle>(null)
   const docRef = useRef<DocPayload | null>(null)
@@ -119,12 +123,40 @@ export default function App() {
     )
     root.style.setProperty('--editor-line-height', String(settings.editor.lineHeight))
     root.style.setProperty('--sidebar-width', `${sidebarWidth}px`)
-    void window.api.window.setOverlay(
-      resolvedTheme === 'dark'
-        ? { color: '#252526', symbolColor: '#d4d4d4' }
-        : { color: '#f7f7f7', symbolColor: '#24292f' }
-    )
   }, [resolvedTheme, settings, sidebarWidth])
+
+  useEffect(() => {
+    let alive = true
+    void window.api.themes
+      .read(settings.appearance.customTheme)
+      .then((parts) => {
+        if (alive) applyThemeStyles(parts)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [settings.appearance.customTheme])
+
+  useEffect(() => {
+    if (!quickOpen) return
+    let alive = true
+    void (async () => {
+      let files: QuickFile[] = []
+      if (folder) files = await window.api.documents.list(folder)
+      if (files.length === 0) {
+        files = recent.files.map((entry) => ({
+          path: entry.path,
+          name: entry.name,
+          relative: entry.path
+        }))
+      }
+      if (alive) setQuickFiles(files)
+    })()
+    return () => {
+      alive = false
+    }
+  }, [quickOpen, folder, recent.files])
 
   useEffect(() => {
     if (!docRef.current) return
@@ -194,6 +226,9 @@ export default function App() {
           const result = await window.api.files.read(target)
           if (result.ok && result.value) {
             setDocument(result.value)
+            void window.api.recent.add(target).then((store) => {
+              if (alive) setRecent(store)
+            })
           }
         }
       } else if (
@@ -202,12 +237,40 @@ export default function App() {
       ) {
         setFolder(loadedRecent.folders[0].path)
       }
+      if (!docRef.current) {
+        setDocument({
+          path: null,
+          displayName: '未命名',
+          content: '',
+          encoding: 'utf8',
+          eol: loadedSettings.editor.defaultEol === 'crlf' ? 'crlf' : 'lf',
+          finalNewline: true,
+          size: 0,
+          mtimeMs: 0
+        })
+      }
       setReady(true)
     })()
     return () => {
       alive = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return
+      const key = event.key.toLowerCase()
+      if (key === 'p') {
+        event.preventDefault()
+        setQuickOpen(true)
+      } else if (key === ',') {
+        event.preventDefault()
+        setSettingsOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   useEffect(() => {
@@ -253,9 +316,7 @@ export default function App() {
     setDoc(next)
     setDocKey((value) => value + 1)
     setOutline(extractOutline(content))
-    setStats(countWords(content))
     setCursor({ line: 1, column: 1 })
-    setSourceMode(false)
   }
 
   async function refreshRecent(): Promise<void> {
@@ -314,7 +375,6 @@ export default function App() {
     dirtyRef.current = dirtyAfter
     setDirty(dirtyAfter)
     setDoc(next)
-    setStats(countWords(live))
     setOutline(extractOutline(live))
     if (draftTimerRef.current) {
       clearTimeout(draftTimerRef.current)
@@ -479,7 +539,6 @@ export default function App() {
     }
     if (statsTimerRef.current) clearTimeout(statsTimerRef.current)
     statsTimerRef.current = setTimeout(() => {
-      setStats(countWords(content))
       setOutline(extractOutline(content))
     }, 250)
     scheduleDraft(content)
@@ -613,11 +672,6 @@ export default function App() {
     showToast('已恢复草稿')
   }
 
-  async function discardDraft(entry: DraftEntry): Promise<void> {
-    await window.api.drafts.discard(entry.id)
-    await refreshDrafts()
-  }
-
   async function handleImportTypora(): Promise<void> {
     const result = await window.api.settings.importTypora()
     if (result.ok && result.value) {
@@ -676,8 +730,31 @@ export default function App() {
         })
         return
       case 'toggle-source':
-        setSourceMode((value) => !value)
+        setSourceMode((value) => {
+          const next = !value
+          try {
+            window.localStorage.setItem('librepen:source-mode', next ? '1' : '0')
+          } catch {}
+          return next
+        })
         return
+      case 'toggle-focus':
+        void updateSettings({ editor: { focusMode: !settingsRef.current.editor.focusMode } })
+        return
+      case 'toggle-typewriter':
+        void updateSettings({
+          editor: { typewriterMode: !settingsRef.current.editor.typewriterMode }
+        })
+        return
+      case 'quick-open':
+        setQuickOpen(true)
+        return
+      case 'recover-draft': {
+        const entry = drafts[0]
+        if (entry) void restoreDraft(entry)
+        else showToast('没有可恢复的草稿')
+        return
+      }
       case 'set-theme': {
         const theme = args
         if (theme === 'light' || theme === 'dark' || theme === 'system') {
@@ -735,15 +812,7 @@ export default function App() {
     document.addEventListener('mouseup', onUp)
   }
 
-  if (!ready) {
-    return (
-      <div className="welcome">
-        <div className="welcome-inner">
-          <p className="subtitle">正在加载 LibrePen…</p>
-        </div>
-      </div>
-    )
-  }
+  if (!ready) return <div className="loading-screen" />
 
   return (
     <div className="app">
@@ -752,7 +821,10 @@ export default function App() {
         dirty={dirty}
         sidebarVisible={sidebarVisible}
         platform={appInfo?.platform ?? 'win32'}
+        sourceMode={sourceMode}
         onToggleSidebar={() => handleCommand('toggle-sidebar')}
+        onToggleSource={() => handleCommand('toggle-source')}
+        onCommand={(command, args) => handleCommand(command, args)}
       />
       <div className="workspace">
         {sidebarVisible ? (
@@ -767,8 +839,6 @@ export default function App() {
               refreshKey={folderRefresh}
               onTab={setTab}
               onOpenFile={(path) => void openFile(path)}
-              onOpenFolder={() => void chooseFolder()}
-              onNewFile={() => void newFile()}
               onRefresh={() => setFolderRefresh((value) => value + 1)}
               onJump={(line) => editorRef.current?.scrollToLine(line)}
               onOpenHit={(hit: SearchHit) =>
@@ -798,32 +868,19 @@ export default function App() {
               onDropPath={(path) => openFile(path)}
             />
           ) : (
-            <Welcome
-              recent={recent}
-              drafts={drafts}
-              onNew={() => void newFile()}
-              onOpenFile={() => void chooseFile()}
-              onOpenFolder={() => void chooseFolder()}
-              onOpenRecent={(path) => void openFile(path)}
-              onOpenFolderPath={(path) => void openFolderPath(path)}
-              onRestoreDraft={(entry) => void restoreDraft(entry)}
-              onDiscardDraft={(entry) => void discardDraft(entry)}
-            />
+            <div className="loading-screen" />
           )}
         </main>
       </div>
-      {settings.appearance.showStatusBar ? (
-        <StatusBar
-          stats={stats}
-          cursor={cursor}
-          encoding={doc?.encoding === 'utf8-bom' ? 'UTF-8 BOM' : (doc?.encoding ?? 'UTF-8').toUpperCase()}
-          eol={doc?.eol ?? 'lf'}
-          dirty={dirty}
-          sourceMode={sourceMode}
-          hasDoc={Boolean(doc)}
-          onToggleSource={() => handleCommand('toggle-source')}
-        />
-      ) : null}
+      <QuickOpen
+        open={quickOpen}
+        files={quickFiles}
+        onOpen={(path) => {
+          setQuickOpen(false)
+          void openFile(path)
+        }}
+        onClose={() => setQuickOpen(false)}
+      />
       <SettingsDialog
         open={settingsOpen}
         settings={settings}

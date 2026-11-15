@@ -6,6 +6,8 @@ import { registerSearchIpc } from './search'
 import { registerExportIpc } from './export'
 import { registerClipboardIpc } from './clipboard'
 import { registerWindowIpc } from './window'
+import { registerThemesIpc } from './themes'
+import { registerDocumentsIpc } from './documents'
 import type { AppContext } from '../context'
 
 export function registerIpc(ctx: AppContext): void {
@@ -17,4 +19,6 @@ export function registerIpc(ctx: AppContext): void {
   registerExportIpc(ctx)
   registerClipboardIpc()
   registerWindowIpc(ctx)
+  registerThemesIpc()
+  registerDocumentsIpc()
 }

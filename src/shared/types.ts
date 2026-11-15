@@ -202,6 +202,7 @@ export interface Settings {
     sidebarWidth: number
     contentWidth: 'narrow' | 'wide'
     showStatusBar: boolean
+    customTheme: string
   }
   export: ExportSettings
   advanced: {
@@ -236,6 +237,24 @@ export interface SessionStore {
   sidebarWidth: number
   sidebarVisible: boolean
   sourceMode: boolean
+}
+
+export interface ThemeInfo {
+  name: string
+  path: string
+  isUserFile: boolean
+}
+
+export interface ThemeParts {
+  baseUser: string
+  themeUser: string
+  theme: string
+}
+
+export interface QuickFile {
+  path: string
+  name: string
+  relative: string
 }
 
 export interface WindowBounds {

@@ -154,6 +154,8 @@ tests/                     Vitest
 | `print:document` | `{html}` | `void` | 隐藏窗口 print |
 | `clipboard:readImage` | – | `{data:Uint8Array, ext:'png'} \| null` | |
 | `shell:openExternal` | `{url}` | `void` | 仅 http/https/mailto |
+| `themes:list/read/open` | – / `{name}` | 主题列表 / CSS 分段 / 打开目录 | 用户主题目录 |
+| `documents:list` | `{root}` | `QuickFile[]` | 快速打开索引 |
 | `window:minimize/maximize/close` | – | `void` | |
 | `window:isMaximized` | – | `boolean` | |
 | `doc:setDirty` | `{dirty, path, title}` | `void` | main 用于关闭确认与标题 |

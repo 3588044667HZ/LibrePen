@@ -63,6 +63,14 @@ const api: LibrePenApi = {
     content: (request, requestId) => ipcRenderer.invoke(IPC.searchContent, request, requestId),
     cancel: (requestId) => ipcRenderer.invoke(IPC.searchCancel, requestId)
   },
+  themes: {
+    list: () => ipcRenderer.invoke(IPC.themesList),
+    read: (name) => ipcRenderer.invoke(IPC.themesRead, name),
+    openFolder: () => ipcRenderer.invoke(IPC.themesOpen)
+  },
+  documents: {
+    list: (root) => ipcRenderer.invoke(IPC.documentsList, root)
+  },
   export: {
     html: (request) => ipcRenderer.invoke(IPC.exportHtml, request),
     pdf: (request) => ipcRenderer.invoke(IPC.exportPdf, request),
