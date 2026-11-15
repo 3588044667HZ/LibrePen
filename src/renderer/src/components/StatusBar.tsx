@@ -1,0 +1,43 @@
+import type { WordStats } from '@shared/markdown'
+
+interface StatusBarProps {
+  stats: WordStats
+  cursor: { line: number; column: number }
+  encoding: string
+  eol: 'lf' | 'crlf'
+  dirty: boolean
+  sourceMode: boolean
+  hasDoc: boolean
+  onToggleSource(): void
+}
+
+export function StatusBar(props: StatusBarProps) {
+  return (
+    <footer className="statusbar">
+      <span>{props.stats.words} 字</span>
+      <span>{props.stats.chars} 字符</span>
+      <span>{props.stats.lines} 行</span>
+      {props.stats.readingMinutes > 0 ? <span>约 {props.stats.readingMinutes} 分钟</span> : null}
+      <span className="spacer" />
+      {props.hasDoc ? (
+        <>
+          <span>
+            Ln {props.cursor.line}, Col {props.cursor.column}
+          </span>
+          <span>{props.encoding}</span>
+          <span>{props.eol === 'crlf' ? 'CRLF' : 'LF'}</span>
+          <span>{props.dirty ? '未保存' : '已保存'}</span>
+          <button
+            className={props.sourceMode ? 'active' : ''}
+            onClick={props.onToggleSource}
+            title="切换源码模式 (Ctrl+/)"
+          >
+            源码
+          </button>
+        </>
+      ) : (
+        <span>就绪</span>
+      )}
+    </footer>
+  )
+}

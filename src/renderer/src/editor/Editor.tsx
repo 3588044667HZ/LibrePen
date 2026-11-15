@@ -1,0 +1,584 @@
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef
+} from 'react'
+import { Compartment, EditorState } from '@codemirror/state'
+import {
+  drawSelection,
+  dropCursor,
+  EditorView,
+  keymap,
+  lineNumbers,
+  placeholder as placeholderExt,
+  type ViewUpdate
+} from '@codemirror/view'
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+  redo,
+  undo
+} from '@codemirror/commands'
+import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
+import { openSearchPanel, search, searchKeymap } from '@codemirror/search'
+import {
+  deleteMarkupBackward,
+  insertNewlineContinueMarkup,
+  markdown,
+  markdownKeymap,
+  markdownLanguage
+} from '@codemirror/lang-markdown'
+import { languages } from '@codemirror/language-data'
+import type { Settings } from '@shared/types'
+import {
+  lineRangeForSelection,
+  toggleBlockPrefix,
+  type BlockPrefix
+} from '@shared/markdown'
+import { livePreview } from './livePreview'
+import { editorTheme } from './theme'
+
+export interface EditorHandle {
+  getContent(): string
+  focus(): void
+  command(id: string, args?: unknown): void
+  insertText(text: string): void
+  insertLink(url: string): void
+  insertImage(alt: string, src: string): void
+  revealPosition(line: number, column: number, length?: number): void
+  scrollToLine(line: number): void
+}
+
+interface EditorProps {
+  initialContent: string
+  docPath: string | null
+  settings: Settings
+  theme: 'light' | 'dark'
+  sourceMode: boolean
+  onChange(content: string): void
+  onCursor(line: number, column: number): void
+  onImage(data: Uint8Array, fileName: string): Promise<void> | void
+  onDropPath(path: string): Promise<void> | void
+}
+
+export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(props, ref) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const viewRef = useRef<EditorView | null>(null)
+  const propsRef = useRef(props)
+  propsRef.current = props
+
+  const compartments = useRef({
+    wrap: new Compartment(),
+    numbers: new Compartment(),
+    tabSize: new Compartment(),
+    theme: new Compartment(),
+    live: new Compartment(),
+    autoPair: new Compartment(),
+    spellcheck: new Compartment()
+  }).current
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getContent: () => viewRef.current?.state.doc.toString() ?? props.initialContent,
+      focus: () => viewRef.current?.focus(),
+      command: (id, args) => {
+        const view = viewRef.current
+        if (view) runCommand(view, id, args)
+      },
+      insertText: (text) => {
+        const view = viewRef.current
+        if (!view) return
+        const { from, to } = view.state.selection.main
+        view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length } })
+        view.focus()
+      },
+      insertLink: (url) => {
+        const view = viewRef.current
+        if (!view) return
+        const { from, to } = view.state.selection.main
+        const selected = view.state.sliceDoc(from, to) || 'text'
+        const insert = `[${selected}](${url})`
+        const urlStart = from + selected.length + 3
+        view.dispatch({
+          changes: { from, to, insert },
+          selection: { anchor: urlStart, head: urlStart + url.length }
+        })
+        view.focus()
+      },
+      insertImage: (alt, src) => {
+        const view = viewRef.current
+        if (!view) return
+        const { from, to } = view.state.selection.main
+        const insert = `![${alt}](${src})`
+        view.dispatch({
+          changes: { from, to, insert },
+          selection: { anchor: from + insert.length }
+        })
+        view.focus()
+      },
+      revealPosition: (line, column, length = 0) => {
+        const view = viewRef.current
+        if (!view) return
+        const lineInfo = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines))
+        const anchor = Math.min(lineInfo.to, lineInfo.from + Math.max(0, column - 1))
+        view.dispatch({
+          selection: { anchor, head: Math.min(lineInfo.to, anchor + length) },
+          effects: EditorView.scrollIntoView(anchor, { y: 'center' })
+        })
+        view.focus()
+      },
+      scrollToLine: (line) => {
+        const view = viewRef.current
+        if (!view) return
+        const lineInfo = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines))
+        view.dispatch({
+          selection: { anchor: lineInfo.from },
+          effects: EditorView.scrollIntoView(lineInfo.from, { y: 'start' })
+        })
+        view.focus()
+      }
+    }),
+    [props.initialContent]
+  )
+
+  useEffect(() => {
+    const parent = containerRef.current
+    if (!parent) return
+    const settings = propsRef.current.settings
+    const dark = propsRef.current.theme === 'dark'
+
+    const view = new EditorView({
+      parent,
+      state: EditorState.create({
+        doc: propsRef.current.initialContent,
+        extensions: [
+          history(),
+          drawSelection(),
+          dropCursor(),
+          search({ top: true }),
+          placeholderExt('开始写作…'),
+          markdown({ base: markdownLanguage, codeLanguages: languages }),
+          compartments.tabSize.of(EditorState.tabSize.of(settings.editor.tabSize)),
+          compartments.wrap.of(settings.editor.lineWrapping ? EditorView.lineWrapping : []),
+          compartments.numbers.of(settings.editor.showLineNumbers ? lineNumbers() : []),
+          compartments.theme.of(editorTheme(settings, dark)),
+          compartments.live.of(
+            settings.editor.livePreview && !propsRef.current.sourceMode
+              ? livePreview({
+                  docPath: propsRef.current.docPath,
+                  inlineMath: settings.editor.inlineMath,
+                  resolveImage: window.api.files.resolveImage
+                })
+              : []
+          ),
+          compartments.autoPair.of(settings.editor.autoPair ? closeBrackets() : []),
+          compartments.spellcheck.of(
+            EditorView.contentAttributes.of({
+              spellcheck: settings.editor.spellcheck ? 'true' : 'false'
+            })
+          ),
+          keymap.of([
+            ...markdownKeymap,
+            { key: 'Enter', run: insertNewlineContinueMarkup },
+            { key: 'Backspace', run: deleteMarkupBackward },
+            ...closeBracketsKeymap,
+            ...searchKeymap,
+            ...historyKeymap,
+            indentWithTab,
+            ...defaultKeymap
+          ]),
+          EditorView.updateListener.of((update: ViewUpdate) => {
+            if (update.docChanged) {
+              propsRef.current.onChange(update.state.doc.toString())
+            }
+            if (update.docChanged || update.selectionSet) {
+              const head = update.state.selection.main.head
+              const line = update.state.doc.lineAt(head)
+              propsRef.current.onCursor(line.number, head - line.from + 1)
+            }
+          }),
+          EditorView.domEventHandlers({
+            paste: (event) => handlePaste(event),
+            drop: (event) => handleDrop(event)
+          })
+        ]
+      })
+    })
+    viewRef.current = view
+    view.focus()
+    propsRef.current.onCursor(1, 1)
+
+    return () => {
+      view.destroy()
+      viewRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    const settings = props.settings
+    view.dispatch({
+      effects: [
+        compartments.wrap.reconfigure(settings.editor.lineWrapping ? EditorView.lineWrapping : []),
+        compartments.numbers.reconfigure(settings.editor.showLineNumbers ? lineNumbers() : []),
+        compartments.tabSize.reconfigure(EditorState.tabSize.of(settings.editor.tabSize)),
+        compartments.theme.reconfigure(editorTheme(settings, props.theme === 'dark')),
+        compartments.live.reconfigure(
+          settings.editor.livePreview && !props.sourceMode
+            ? livePreview({
+                docPath: props.docPath,
+                inlineMath: settings.editor.inlineMath,
+                resolveImage: window.api.files.resolveImage
+              })
+            : []
+        ),
+        compartments.autoPair.reconfigure(settings.editor.autoPair ? closeBrackets() : []),
+        compartments.spellcheck.reconfigure(
+          EditorView.contentAttributes.of({
+            spellcheck: settings.editor.spellcheck ? 'true' : 'false'
+          })
+        )
+      ]
+    })
+  }, [props.settings, props.sourceMode, props.docPath, props.theme, compartments])
+
+  function handlePaste(event: ClipboardEvent): boolean {
+    const data = event.clipboardData
+    if (!data) return false
+    const files: File[] = []
+    for (const item of Array.from(data.items)) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile()
+        if (file && isImageFile(file)) files.push(file)
+      }
+    }
+    for (const file of Array.from(data.files)) {
+      if (isImageFile(file)) files.push(file)
+    }
+    const unique = uniqueFiles(files)
+    if (unique.length === 0) return false
+    event.preventDefault()
+    void sendImages(unique)
+    return true
+  }
+
+  function handleDrop(event: DragEvent): boolean {
+    const transfer = event.dataTransfer
+    if (!transfer) return false
+    const files = uniqueFiles(Array.from(transfer.files))
+    if (files.length === 0) return false
+    const images = files.filter(isImageFile)
+    const docs = files.filter((file) => !isImageFile(file))
+    if (images.length > 0) {
+      event.preventDefault()
+      void sendImages(images)
+    }
+    if (docs.length > 0) {
+      event.preventDefault()
+      void openDroppedFiles(docs)
+    }
+    return images.length > 0 || docs.length > 0
+  }
+
+  async function openDroppedFiles(files: File[]): Promise<void> {
+    for (const file of files) {
+      const filePath = window.api.files.getPathForFile(file)
+      if (filePath) await propsRef.current.onDropPath(filePath)
+    }
+  }
+
+  async function sendImages(files: File[]): Promise<void> {
+    for (const file of files) {
+      const buffer = await file.arrayBuffer()
+      await propsRef.current.onImage(new Uint8Array(buffer), file.name || 'image.png')
+    }
+  }
+
+  return <div ref={containerRef} className="editor-host" />
+})
+
+function runCommand(view: EditorView, id: string, args?: unknown): void {
+  const state = view.state
+  const selection = state.selection.main
+  const doc = state.doc.toString()
+
+  const dispatchInsert = (insert: string, selectFrom: number, selectTo: number): void => {
+    view.dispatch({
+      changes: { from: selection.from, to: selection.to, insert },
+      selection: { anchor: selectFrom, head: selectTo },
+      scrollIntoView: true
+    })
+    view.focus()
+  }
+
+  const toggleInline = (before: string, after: string, placeholder: string): void => {
+    const selected = state.sliceDoc(selection.from, selection.to)
+    const beforeOutside = state.sliceDoc(
+      Math.max(0, selection.from - before.length),
+      selection.from
+    )
+    const afterOutside = state.sliceDoc(selection.to, selection.to + after.length)
+    if (selected && beforeOutside === before && afterOutside === after) {
+      view.dispatch({
+        changes: [
+          { from: selection.from - before.length, to: selection.from, insert: '' },
+          { from: selection.to, to: selection.to + after.length, insert: '' }
+        ],
+        selection: {
+          anchor: selection.from - before.length,
+          head: selection.to - before.length
+        }
+      })
+      view.focus()
+      return
+    }
+    if (selection.from === selection.to) {
+      const insert = before + placeholder + after
+      view.dispatch({
+        changes: { from: selection.from, insert },
+        selection: {
+          anchor: selection.from + before.length,
+          head: selection.from + before.length + placeholder.length
+        }
+      })
+      view.focus()
+      return
+    }
+    const insert = before + selected + after
+    view.dispatch({
+      changes: { from: selection.from, to: selection.to, insert },
+      selection: {
+        anchor: selection.from + before.length,
+        head: selection.from + before.length + selected.length
+      }
+    })
+    view.focus()
+  }
+
+  const applyBlock = (prefix: BlockPrefix): void => {
+    const result = toggleBlockPrefix(doc, selection.from, selection.to, prefix)
+    const { start, end } = lineRangeForSelection(doc, selection.from, selection.to)
+    const inserted = result.doc.slice(start, result.to)
+    view.dispatch({
+      changes: { from: start, to: Math.max(end, start), insert: inserted },
+      selection: { anchor: start, head: start + inserted.length },
+      scrollIntoView: true
+    })
+    view.focus()
+  }
+
+  const currentHeading = (): number => {
+    const line = state.doc.lineAt(selection.head)
+    const match = /^(#{1,6})\s/.exec(line.text)
+    return match ? match[1].length : 0
+  }
+
+  switch (id) {
+    case 'undo':
+      undo(view)
+      return
+    case 'redo':
+      redo(view)
+      return
+    case 'find':
+    case 'replace':
+      openSearchPanel(view)
+      return
+    case 'bold':
+      toggleInline('**', '**', 'bold')
+      return
+    case 'italic':
+      toggleInline('*', '*', 'italic')
+      return
+    case 'strike':
+      toggleInline('~~', '~~', 'text')
+      return
+    case 'highlight':
+      toggleInline('==', '==', 'text')
+      return
+    case 'inline-code':
+      toggleInline('`', '`', 'code')
+      return
+    case 'underline':
+      toggleInline('<u>', '</u>', 'text')
+      return
+    case 'superscript':
+      toggleInline('^', '^', 'text')
+      return
+    case 'subscript':
+      toggleInline('~', '~', 'text')
+      return
+    case 'heading': {
+      const level = Number((args as { level?: number } | undefined)?.level ?? 1)
+      applyBlock(`heading${Math.max(0, Math.min(6, level))}` as BlockPrefix)
+      return
+    }
+    case 'heading-up': {
+      const level = currentHeading()
+      applyBlock(`heading${Math.max(0, level - 1)}` as BlockPrefix)
+      return
+    }
+    case 'heading-down': {
+      const level = currentHeading()
+      applyBlock(`heading${Math.min(6, level === 0 ? 1 : level + 1)}` as BlockPrefix)
+      return
+    }
+    case 'quote':
+      applyBlock('quote')
+      return
+    case 'bullet-list':
+    case 'bullet':
+      applyBlock('bullet')
+      return
+    case 'ordered-list':
+    case 'ordered':
+      applyBlock('ordered')
+      return
+    case 'task-list':
+    case 'task':
+      applyBlock('task')
+      return
+    case 'code-fence': {
+      const selected = state.sliceDoc(selection.from, selection.to)
+      if (selected) {
+        const insert = '```\n' + selected + '\n```'
+        dispatchInsert(insert, selection.from, selection.from + insert.length)
+      } else {
+        const insert = '```\n\n```'
+        view.dispatch({
+          changes: { from: selection.from, insert },
+          selection: { anchor: selection.from + 4 }
+        })
+        view.focus()
+      }
+      return
+    }
+    case 'math-block': {
+      const selected = state.sliceDoc(selection.from, selection.to)
+      if (selected) {
+        const insert = '$$\n' + selected + '\n$$'
+        view.dispatch({
+          changes: { from: selection.from, to: selection.to, insert },
+          selection: {
+            anchor: selection.from + 3,
+            head: selection.from + 3 + selected.length
+          }
+        })
+      } else {
+        const insert = '$$\n\n$$'
+        view.dispatch({
+          changes: { from: selection.from, insert },
+          selection: { anchor: selection.from + 3 }
+        })
+      }
+      view.focus()
+      return
+    }
+    case 'table': {
+      const insert = '| Column 1 | Column 2 |\n| --- | --- |\n| Text | Text |'
+      const first = insert.indexOf('Column 1')
+      dispatchInsert(insert, selection.from + first, selection.from + first + 8)
+      return
+    }
+    case 'hr': {
+      const insert = '\n---\n'
+      dispatchInsert(insert, selection.from + insert.length, selection.from + insert.length)
+      return
+    }
+    case 'toc': {
+      const insert = '[toc]\n'
+      dispatchInsert(insert, selection.from + insert.length, selection.from + insert.length)
+      return
+    }
+    case 'clear-format': {
+      const { start, end } = lineRangeForSelection(doc, selection.from, selection.to)
+      const block = doc.slice(start, end)
+      const cleaned = stripFormattingBlock(block)
+      view.dispatch({
+        changes: { from: start, to: end, insert: cleaned },
+        selection: { anchor: start, head: start + cleaned.length }
+      })
+      view.focus()
+      return
+    }
+    case 'paste-plain': {
+      void window.api.clipboard.readText().then((text) => {
+        if (text) {
+          const current = view.state.selection.main
+          view.dispatch({
+            changes: { from: current.from, to: current.to, insert: text },
+            selection: { anchor: current.from + text.length }
+          })
+          view.focus()
+        }
+      })
+      return
+    }
+    default:
+      return
+  }
+}
+
+function stripFormatting(line: string): string {
+  const withoutBlock = line
+    .replace(/^\s{0,3}#{1,6}\s+/, '')
+    .replace(/^\s{0,3}>\s?/, '')
+    .replace(/^(\s*)[-*+]\s+\[[ xX]\]\s+/, '$1')
+    .replace(/^(\s*)[-*+]\s+/, '$1')
+    .replace(/^(\s*)\d+[.)]\s+/, '$1')
+  return withoutBlock
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__)(.+?)\1/g, '$2')
+    .replace(/~~(.+?)~~/g, '$1')
+    .replace(/==(.+?)==/g, '$1')
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '$1')
+    .replace(/(?<!_)_([^_\n]+)_(?!_)/g, '$1')
+    .replace(/<\/?u>/gi, '')
+    .replace(/\^([^^\n]+)\^/g, '$1')
+    .replace(/(?<!~)~([^~\n]+)~(?!~)/g, '$1')
+    .replace(/`([^`]*)`/g, '$1')
+}
+
+function stripFormattingBlock(block: string): string {
+  const lines = block.split('\n')
+  const out: string[] = []
+  let fence: string | null = null
+  for (const line of lines) {
+    const match = /^\s{0,3}(`{3,}|~{3,})/.exec(line)
+    if (fence) {
+      out.push(line)
+      if (match && match[1][0] === fence) fence = null
+      continue
+    }
+    if (match) {
+      fence = match[1][0]
+      out.push(line)
+      continue
+    }
+    out.push(stripFormatting(line))
+  }
+  return out.join('\n')
+}
+
+function isImageFile(file: File): boolean {
+  return file.type.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(file.name)
+}
+
+function uniqueFiles(files: File[]): File[] {
+  const seen = new Set<string>()
+  const unique: File[] = []
+  for (const file of files) {
+    const key = `${file.name}:${file.size}:${file.lastModified}:${file.type}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    unique.push(file)
+  }
+  return unique
+}
