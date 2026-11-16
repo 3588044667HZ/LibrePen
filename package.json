@@ -97,7 +97,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "LibrePen"
+      "shortcutName": "LibrePen",
+      "include": "resources/installer/associations.nsh"
     },
     "fileAssociations": [
       {
@@ -105,7 +106,7 @@
           "md",
           "markdown"
         ],
-        "name": "Markdown Document",
+        "name": "LibrePen.Markdown",
         "description": "Markdown document",
         "role": "Editor"
       }
