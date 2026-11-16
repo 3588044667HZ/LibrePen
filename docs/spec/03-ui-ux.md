@@ -96,7 +96,7 @@
 
 ```text
 File     New, New Window, Open…, Open Folder…, Open Recent ▸, Save, Save As…,
-         Export ▸ (HTML, PDF, Word), Print…, Close, Exit
+         Export ▸ (HTML, PDF, Word, ODT, RTF, EPUB), Print…, Close, Exit
 Edit     Undo, Redo, Cut, Copy, Paste, Paste as Plain Text,
          Find…, Replace…, Select All
 Paragraph Heading 1..6, Paragraph, Increase/Decrease Heading,

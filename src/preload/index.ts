@@ -75,7 +75,7 @@ const api: LibrePenApi = {
   export: {
     html: (request) => ipcRenderer.invoke(IPC.exportHtml, request),
     pdf: (request) => ipcRenderer.invoke(IPC.exportPdf, request),
-    docx: (request) => ipcRenderer.invoke(IPC.exportDocx, request),
+    document: (request) => ipcRenderer.invoke(IPC.exportDocument, request),
     print: (html) => ipcRenderer.invoke(IPC.printDocument, html)
   },
   clipboard: {

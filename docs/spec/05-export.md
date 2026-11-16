@@ -67,9 +67,12 @@ Markdown source
 - 不允许 `.docm`、宏或脚本；参考文件必须是已存在的普通文件，大小限制 50MB。
 - 参考样式路径会随设置在 settings.json 中保存；用户主题 CSS 不自动影响 Word。
 
-### 6.3 后续格式
+### 6.3 其他 Pandoc 格式
 
-- ODT、RTF、EPUB、LaTeX、RST、MediaWiki、Textile、OPML、native 复用同一 Pandoc 服务和错误处理。
+- 已实现 ODT、RTF、EPUB 导出，复用同一 Pandoc 服务、保存对话框、临时文件和错误处理。
+- RTF 使用 `--standalone` 生成完整 RTF 头；EPUB 自动补充文档标题元数据。
+- 参考样式目前只支持 Word 的 `reference.docx`；ODT/EPUB 的样式模板后续扩展。
+- LaTeX、RST、MediaWiki、Textile、OPML、native 继续复用同一服务。
 - 导入：DOCX/EPUB/LaTeX 经 `pandoc -f <format> -t gfm` 生成 Markdown 后打开为未命名文档。
 
 ## 7. 自定义命令导出（P2）

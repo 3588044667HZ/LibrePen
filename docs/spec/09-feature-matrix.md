@@ -66,7 +66,8 @@
 | 打印 | ✅ | ✅ | MVP |
 | 图片导出 | ✅ | ⏳ | P3 |
 | Word（DOCX） | ✅ Pandoc | 🟡 Pandoc + `--reference-doc` | P3 |
-| ODT/RTF/EPUB/LaTeX | ✅ Pandoc | ⏳ | P3 |
+| ODT/RTF/EPUB | ✅ Pandoc | 🟡 Pandoc 默认样式 | P3 |
+| LaTeX/RST/MediaWiki/Textile/OPML | ✅ Pandoc | ⏳ | P3 |
 | Markdown 变体导出 | ✅ | ⏳ | P3 |
 | 自定义命令 | ✅ | ❌（安全评估后） | P4 |
 | 导入 docx/epub/… | ✅ Pandoc | ⏳ | P3 |

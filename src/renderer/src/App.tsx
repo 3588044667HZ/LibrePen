@@ -13,7 +13,8 @@ import type {
   QuickFile,
   RecentStore,
   SearchHit,
-  Settings
+  Settings,
+  PandocExportFormat
 } from '@shared/types'
 import {
   encodeMarkdownUrl,
@@ -612,24 +613,33 @@ export default function App() {
     }
   }
 
-  async function exportDocx(): Promise<void> {
+  async function exportPandoc(format: PandocExportFormat): Promise<void> {
     const current = docRef.current
     if (!current) return
     const content = editorRef.current?.getContent() ?? contentRef.current
     const base = current.displayName.replace(/\.[^.]+$/, '')
-    const suggested = joinPath(dirName(current.path), `${base}.docx`)
-    const result = await window.api.export.docx({
+    const suggested = joinPath(dirName(current.path), base + '.' + format)
+    const labels: Record<PandocExportFormat, string> = {
+      docx: 'Word',
+      odt: 'ODT',
+      rtf: 'RTF',
+      epub: 'EPUB'
+    }
+    const result = await window.api.export.document({
+      format,
       markdown: content,
       docPath: current.path,
       suggestedName: suggested,
-      referenceDoc: settings.export.docx.referenceDoc || undefined
+      title: base,
+      referenceDoc:
+        format === 'docx' ? settings.export.docx.referenceDoc || undefined : undefined
     })
     if (!result.ok) {
-      showToast(result.error ?? 'Word 导出失败', true)
+      showToast(result.error ?? labels[format] + ' 导出失败', true)
       return
     }
     if (result.value) {
-      showToast('已导出 Word')
+      showToast('已导出 ' + labels[format])
       if (settings.export.general.openAfterExport) await window.api.shell.openPath(result.value)
     }
   }
@@ -739,7 +749,16 @@ export default function App() {
         void exportHtml()
         return
       case 'export-docx':
-        void exportDocx()
+        void exportPandoc('docx')
+        return
+      case 'export-odt':
+        void exportPandoc('odt')
+        return
+      case 'export-rtf':
+        void exportPandoc('rtf')
+        return
+      case 'export-epub':
+        void exportPandoc('epub')
         return
       case 'export-pdf':
         void exportPdf()

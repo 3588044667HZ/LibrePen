@@ -133,6 +133,9 @@ export function buildApplicationMenu(ctx: AppContext): Menu {
           submenu: [
             { label: 'HTML…', accelerator: 'CmdOrCtrl+Shift+E', click: send('export-html') },
             { label: 'Word (.docx)', click: send('export-docx') },
+            { label: 'ODT (.odt)', click: send('export-odt') },
+            { label: 'RTF (.rtf)', click: send('export-rtf') },
+            { label: 'EPUB (.epub)', click: send('export-epub') },
             { label: 'PDF…', click: send('export-pdf') },
             { label: '打印…', accelerator: 'CmdOrCtrl+Shift+P', click: send('print') }
           ]

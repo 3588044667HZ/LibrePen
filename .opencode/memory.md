@@ -27,14 +27,15 @@
 - PDF：Chromium `printToPDF`，支持纸张、边距、打印背景；深色主题导出时使用浅色样式。
 - 打印：复用 PDF 导出管线。
 - Word：DOCX 已通过外部 Pandoc 导出；支持设置 `export.docx.referenceDoc` 参考样式（`--reference-doc`）；Pandoc 路径可配置。
-- 已知边界：尚无 ODT/RTF/EPUB/LaTeX 导出；尚无导出取消/进度、Pandoc 自动探测 UI 和 per-file 导出配置。
+- ODT / RTF / EPUB：已通过同一 Pandoc 服务导出；RTF 使用 standalone，EPUB 自动补标题。
+- 已知边界：尚无 LaTeX 导出和自定义导出样式；尚无导出取消/进度、Pandoc 自动探测 UI 和 per-file 导出配置。
 
 ### 待办格式
 
 - **DOCX / Word**：已实现；通过外部 Pandoc 导出，支持 `--reference-doc` 参考样式；保留标题、列表、表格、代码、公式、图片、脚注（需实测）。
-- **ODT**：Pandoc 导出；验证 LibreOffice 打开后的分页与表格。
-- **RTF**：Pandoc 导出；确认中文编码和字体回退。
-- **EPUB**：Pandoc 导出；封面、目录、图片、代码块和脚注。
+- **ODT**：已实现；后续验证 LibreOffice 打开后的分页与表格。
+- **RTF**：已实现；后续确认中文编码和字体回退。
+- **EPUB**：已实现基础导出；封面、目录、图片和样式模板后续完善。
 - **LaTeX / PDF（LaTeX 管线）**：Pandoc/LaTeX 可选；与 Chromium PDF 并存，用户可切换。
 - **Markdown 变体**：GFM、CommonMark、Pandoc Markdown；保留源文件编码、换行风格和末尾换行。
 - **HTML 变体**：自包含单文件、HTML 片段、复制为 HTML。

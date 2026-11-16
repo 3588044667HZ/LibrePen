@@ -39,7 +39,7 @@ export const IPC = {
 
   exportHtml: 'export:html',
   exportPdf: 'export:pdf',
-  exportDocx: 'export:docx',
+  exportDocument: 'export:document',
   printDocument: 'print:document',
 
   themesList: 'themes:list',

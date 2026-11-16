@@ -5,7 +5,7 @@ import type {
   DocPayload,
   DraftEntry,
   DraftSaveRequest,
-  ExportDocxRequest,
+  ExportDocumentRequest,
   ExportHtmlRequest,
   ExportPdfRequest,
   FileNode,
@@ -91,7 +91,7 @@ export interface LibrePenApi {
   export: {
     html(request: ExportHtmlRequest): Promise<Result<string | null>>
     pdf(request: ExportPdfRequest): Promise<Result<string | null>>
-    docx(request: ExportDocxRequest): Promise<Result<string | null>>
+    document(request: ExportDocumentRequest): Promise<Result<string | null>>
     print(html: string): Promise<Result<void>>
   }
   clipboard: {

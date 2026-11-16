@@ -2,6 +2,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import type { PandocExportFormat } from '../src/shared/types'
 
 const mocks = vi.hoisted(() => ({
   execFile: vi.fn(),
@@ -19,7 +20,7 @@ import { ExportService } from '../src/main/services/export'
 let dir = ''
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'librepen-docx-test-'))
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'librepen-pandoc-test-'))
   mocks.execFile.mockReset()
   mocks.showSaveDialog.mockReset()
 })
@@ -28,48 +29,62 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true })
 })
 
-function request(target: string, referenceDoc = '') {
+function request(
+  target: string,
+  format: PandocExportFormat = 'docx',
+  referenceDoc = ''
+) {
   return {
+    format,
     markdown: '# Title\n\nBody',
     docPath: null,
     suggestedName: target,
+    title: 'Title',
     referenceDoc
   }
 }
 
-describe('ExportService.exportDocx', () => {
-  it('runs Pandoc and atomically writes the generated document', async () => {
-    const target = path.join(dir, 'out.docx')
-    mocks.showSaveDialog.mockResolvedValue({ canceled: false, filePath: target })
-    mocks.execFile.mockImplementation((_command, args, _options, callback) => {
-      const output = args[args.indexOf('--output') + 1]
-      fs.writeFileSync(output, Buffer.from('fake-docx'))
-      callback(null, '', '')
-    })
-
-    const saved = await new ExportService().exportDocx(null, request(target), undefined)
-
-    expect(saved).toBe(target)
-    expect(fs.readFileSync(target, 'utf8')).toBe('fake-docx')
-    expect(mocks.execFile).toHaveBeenCalledTimes(1)
-    const [command, args] = mocks.execFile.mock.calls[0]
-    expect(command).toBe('pandoc')
-    expect(args).toContain('--to')
-    expect(args).toContain('docx')
-    expect(args).toContain('--output')
+function fakePandoc() {
+  mocks.execFile.mockImplementation((_command, args, _options, callback) => {
+    const output = args[args.indexOf('--output') + 1]
+    fs.writeFileSync(output, Buffer.from('fake-document'))
+    callback(null, '', '')
   })
+}
 
-  it('passes a valid reference document to Pandoc', async () => {
+describe('ExportService.exportDocument', () => {
+  it.each(['docx', 'odt', 'rtf', 'epub'] as const)(
+    'runs Pandoc for %s and atomically writes the generated document',
+    async (format) => {
+      const target = path.join(dir, `out.${format}`)
+      mocks.showSaveDialog.mockResolvedValue({ canceled: false, filePath: target })
+      fakePandoc()
+
+      const saved = await new ExportService().exportDocument(null, request(target, format), undefined)
+
+      expect(saved).toBe(target)
+      expect(fs.readFileSync(target, 'utf8')).toBe('fake-document')
+      expect(mocks.execFile).toHaveBeenCalledTimes(1)
+      const [command, args] = mocks.execFile.mock.calls[0]
+      expect(command).toBe('pandoc')
+      expect(args).toContain('--to')
+      expect(args).toContain(format)
+      expect(args).toContain('--output')
+    }
+  )
+
+  it('passes a valid reference document to Word export', async () => {
     const target = path.join(dir, 'out.docx')
     const reference = path.join(dir, 'reference.docx')
     fs.writeFileSync(reference, Buffer.from('reference'))
     mocks.showSaveDialog.mockResolvedValue({ canceled: false, filePath: target })
-    mocks.execFile.mockImplementation((_command, args, _options, callback) => {
-      fs.writeFileSync(args[args.indexOf('--output') + 1], Buffer.from('fake-docx'))
-      callback(null, '', '')
-    })
+    fakePandoc()
 
-    await new ExportService().exportDocx(null, request(target, reference), undefined)
+    await new ExportService().exportDocument(
+      null,
+      request(target, 'docx', reference),
+      undefined
+    )
 
     const args = mocks.execFile.mock.calls[0][1]
     expect(args).toContain('--reference-doc')
@@ -84,7 +99,7 @@ describe('ExportService.exportDocx', () => {
     })
 
     await expect(
-      new ExportService().exportDocx(null, request(target), undefined)
+      new ExportService().exportDocument(null, request(target), undefined)
     ).rejects.toMatchObject({ code: 'E_PANDOC_NOT_FOUND' })
   })
 
@@ -94,7 +109,7 @@ describe('ExportService.exportDocx', () => {
     mocks.showSaveDialog.mockResolvedValue({ canceled: false, filePath: target })
 
     await expect(
-      new ExportService().exportDocx(null, request(target, missing), undefined)
+      new ExportService().exportDocument(null, request(target, 'docx', missing), undefined)
     ).rejects.toMatchObject({ code: 'E_REFERENCE_DOC' })
     expect(mocks.execFile).not.toHaveBeenCalled()
   })

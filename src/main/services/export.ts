@@ -9,7 +9,12 @@ import {
   type SaveDialogReturnValue,
   type SaveDialogOptions
 } from 'electron'
-import type { ExportDocxRequest, ExportHtmlRequest, ExportPdfRequest } from '@shared/types'
+import type {
+  ExportDocumentRequest,
+  ExportHtmlRequest,
+  ExportPdfRequest,
+  PandocExportFormat
+} from '@shared/types'
 import { assertSafePath, decodeImageUrlPath, mimeForImage, resolveSafeImagePath } from '../lib/paths'
 import { atomicWriteFile } from '../lib/atomic-write'
 
@@ -18,6 +23,16 @@ const MAX_INLINE_TOTAL = 50 * 1024 * 1024
 const MAX_REFERENCE_DOC = 50 * 1024 * 1024
 const PANDOC_TIMEOUT_MS = 120_000
 const MAX_PANDOC_BUFFER = 8 * 1024 * 1024
+const PANDOC_FORMATS: Record<
+  PandocExportFormat,
+  { title: string; extension: string; filter: string; referenceDoc: boolean }
+> = {
+  docx: { title: '导出 Word', extension: 'docx', filter: 'Word', referenceDoc: true },
+  odt: { title: '导出 ODT', extension: 'odt', filter: 'ODT', referenceDoc: false },
+  rtf: { title: '导出 RTF', extension: 'rtf', filter: 'RTF', referenceDoc: false },
+  epub: { title: '导出 EPUB', extension: 'epub', filter: 'EPUB', referenceDoc: false }
+}
+
 
 const PRINT_CSP =
   "default-src 'none'; img-src 'self' mdimg: data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; media-src 'self' mdimg: data: https:; object-src 'none'; frame-src 'none'; connect-src 'none'"
@@ -37,33 +52,46 @@ export class ExportService {
     return safeTarget
   }
 
-  async exportDocx(
+  async exportDocument(
     parent: BrowserWindow | null,
-    request: ExportDocxRequest,
+    request: ExportDocumentRequest,
     pandocPath: string | undefined
   ): Promise<string | null> {
+    const format = PANDOC_FORMATS[request.format]
     const result = await saveDialog(parent, {
-      title: '导出 Word',
-      defaultPath: safeSuggestedName(request.suggestedName, 'export.docx'),
-      filters: [{ name: 'Word', extensions: ['docx'] }]
+      title: format.title,
+      defaultPath: safeSuggestedName(request.suggestedName, 'export.' + format.extension),
+      filters: [{ name: format.filter, extensions: [format.extension] }]
     })
     if (result.canceled || !result.filePath) return null
-    const target = /\.docx$/i.test(result.filePath) ? result.filePath : `${result.filePath}.docx`
+    const suffix = new RegExp('\\.' + format.extension + '$', 'i')
+    const target = suffix.test(result.filePath)
+      ? result.filePath
+      : result.filePath + '.' + format.extension
     const safeTarget = assertSafePath(target)
-    const referenceDoc = validateReferenceDoc(request.referenceDoc)
-    const docDir = request.docPath && path.isAbsolute(request.docPath) ? path.dirname(request.docPath) : null
-    const stamp = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const tempMarkdown = path.join(os.tmpdir(), `librepen-docx-${stamp}.md`)
-    const tempOutput = path.join(os.tmpdir(), `librepen-docx-${stamp}.docx`)
+    const referenceDoc = format.referenceDoc ? validateReferenceDoc(request.referenceDoc) : null
+    const docDir =
+      request.docPath && path.isAbsolute(request.docPath) ? path.dirname(request.docPath) : null
+    const stamp = process.pid + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8)
+    const tempMarkdown = path.join(os.tmpdir(), 'librepen-' + request.format + '-' + stamp + '.md')
+    const tempOutput = path.join(
+      os.tmpdir(),
+      'librepen-' + request.format + '-' + stamp + '.' + format.extension
+    )
+    const title = sanitizeTitle(request.title)
     try {
       await fsp.writeFile(tempMarkdown, request.markdown, { encoding: 'utf8', mode: 0o600 })
       await runPandoc(
         pandocPath?.trim() || 'pandoc',
-        buildDocxArgs(tempMarkdown, tempOutput, docDir, referenceDoc)
+        buildPandocArgs(tempMarkdown, tempOutput, docDir, referenceDoc, request.format, title)
       )
       const stat = await fsp.stat(tempOutput)
-      if (!stat.isFile() || stat.size === 0) throw pandocError('E_PANDOC_FAILED', 'Pandoc 没有生成 Word 文件')
-      if (stat.size > 200 * 1024 * 1024) throw pandocError('E_EXPORT_TOO_LARGE', 'Word 导出文件过大')
+      if (!stat.isFile() || stat.size === 0) {
+        throw pandocError('E_PANDOC_FAILED', 'Pandoc 没有生成 ' + format.filter + ' 文件')
+      }
+      if (stat.size > 200 * 1024 * 1024) {
+        throw pandocError('E_EXPORT_TOO_LARGE', format.filter + ' 导出文件过大')
+      }
       atomicWriteFile(safeTarget, await fsp.readFile(tempOutput))
       return safeTarget
     } finally {
@@ -133,24 +161,33 @@ export class ExportService {
   }
 }
 
-function buildDocxArgs(
+function buildPandocArgs(
   input: string,
   output: string,
   docDir: string | null,
-  referenceDoc: string | null
+  referenceDoc: string | null,
+  format: PandocExportFormat,
+  title: string
 ): string[] {
   const args = [
     '--from',
     'markdown+mark+footnotes+definition_lists+task_lists+tex_math_dollars+superscript+subscript+strikeout+pipe_tables',
+    '--standalone',
     '--to',
-    'docx',
+    format,
     '--output',
     output
   ]
-  if (referenceDoc) args.push('--reference-doc', referenceDoc)
+  if (format === 'docx' && referenceDoc) args.push('--reference-doc', referenceDoc)
+  if (format === 'epub' && title) args.push('--metadata', 'title=' + title)
   if (docDir) args.push('--resource-path', docDir)
   args.push(input)
   return args
+}
+
+function sanitizeTitle(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value.trim().slice(0, 256)
 }
 
 function validateReferenceDoc(value: unknown): string | null {

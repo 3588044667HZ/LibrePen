@@ -10,6 +10,7 @@ vi.mock('electron', () => ({
 }))
 
 import { ExportService } from '../src/main/services/export'
+import type { PandocExportFormat } from '../src/shared/types'
 
 const pandocPath =
   process.env.PANDOC_PATH ||
@@ -20,7 +21,7 @@ const testIfPandoc = available ? it : it.skip
 let dir = ''
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'librepen-docx-integration-'))
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'librepen-pandoc-integration-'))
   mocks.showSaveDialog.mockReset()
 })
 
@@ -28,34 +29,41 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true })
 })
 
-describe('ExportService.exportDocx integration', () => {
-  testIfPandoc('creates a real DOCX through Pandoc', async () => {
-    const target = path.join(dir, 'integration.docx')
-    mocks.showSaveDialog.mockResolvedValue({ canceled: false, filePath: target })
-    const markdown = [
-      '---',
-      'title: Integration Test',
-      '---',
-      '',
-      '# Heading',
-      '',
-      'A paragraph with **bold** and $E = mc^2$.',
-      '',
-      '| A | B |',
-      '| --- | --- |',
-      '| 1 | 2 |',
-      ''
-    ].join('\n')
+describe('ExportService.exportDocument integration', () => {
+  testIfPandoc.each(['docx', 'odt', 'rtf', 'epub'] as PandocExportFormat[])(
+    'creates a real %s through Pandoc',
+    async (format) => {
+      const target = path.join(dir, `integration.${format}`)
+      mocks.showSaveDialog.mockResolvedValue({ canceled: false, filePath: target })
+      const markdown = [
+        '---',
+        'title: Integration Test',
+        '---',
+        '',
+        '# Heading',
+        '',
+        'A paragraph with **bold** and $E = mc^2$.',
+        '',
+        '| A | B |',
+        '| --- | --- |',
+        '| 1 | 2 |',
+        ''
+      ].join('\n')
 
-    const saved = await new ExportService().exportDocx(
-      null,
-      { markdown, docPath: null, suggestedName: target, referenceDoc: '' },
-      pandocPath
-    )
+      const saved = await new ExportService().exportDocument(
+        null,
+        { format, markdown, docPath: null, suggestedName: target, title: 'Integration Test' },
+        pandocPath
+      )
 
-    expect(saved).toBe(target)
-    const data = fs.readFileSync(target)
-    expect(data.length).toBeGreaterThan(1000)
-    expect(data.subarray(0, 4).toString('binary')).toBe('PK\u0003\u0004')
-  })
+      expect(saved).toBe(target)
+      const data = fs.readFileSync(target)
+      expect(data.length).toBeGreaterThan(200)
+      if (format === 'rtf') {
+        expect(data.subarray(0, 5).toString('binary')).toBe('{\\rtf')
+      } else {
+        expect(data.subarray(0, 4).toString('binary')).toBe('PK\u0003\u0004')
+      }
+    }
+  )
 })

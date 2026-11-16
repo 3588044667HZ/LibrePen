@@ -130,10 +130,14 @@ export interface ExportPdfRequest {
   printBackground?: boolean
 }
 
-export interface ExportDocxRequest {
+export type PandocExportFormat = 'docx' | 'odt' | 'rtf' | 'epub'
+
+export interface ExportDocumentRequest {
+  format: PandocExportFormat
   markdown: string
   docPath: string | null
   suggestedName: string
+  title?: string
   referenceDoc?: string
 }
 

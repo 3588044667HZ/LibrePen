@@ -1,6 +1,11 @@
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { IPC } from '@shared/ipc'
-import type { ExportDocxRequest, ExportHtmlRequest, ExportPdfRequest } from '@shared/types'
+import type {
+  ExportDocumentRequest,
+  ExportHtmlRequest,
+  ExportPdfRequest,
+  PandocExportFormat
+} from '@shared/types'
 import type { AppContext } from '../context'
 import { ExportService } from '../services/export'
 import { fail, ok } from './result'
@@ -8,6 +13,7 @@ import { fail, ok } from './result'
 const MAX_HTML_LENGTH = 50_000_000
 const PAGE_SIZES = new Set(['A4', 'Letter', 'A5', 'Legal'])
 const MAX_MARKDOWN_LENGTH = 50_000_000
+const PANDOC_FORMATS = new Set<PandocExportFormat>(['docx', 'odt', 'rtf', 'epub'])
 
 function readHtml(value: unknown): string {
   if (typeof value !== 'string') throw new Error('E_INVALID_REQUEST')
@@ -19,6 +25,13 @@ function readMarkdown(value: unknown): string {
   if (typeof value !== 'string') throw new Error('E_INVALID_REQUEST')
   if (value.length > MAX_MARKDOWN_LENGTH) throw new Error('E_EXPORT_TOO_LARGE')
   return value
+}
+
+function readPandocFormat(value: unknown): PandocExportFormat {
+  if (typeof value !== 'string' || !PANDOC_FORMATS.has(value as PandocExportFormat)) {
+    throw new Error('E_INVALID_REQUEST')
+  }
+  return value as PandocExportFormat
 }
 
 function readName(value: unknown, fallback: string): string {
@@ -49,19 +62,23 @@ export function registerExportIpc(ctx: AppContext): void {
     }
   })
 
-  ipcMain.handle(IPC.exportDocx, async (event: IpcMainInvokeEvent, raw: unknown) => {
+  ipcMain.handle(IPC.exportDocument, async (event: IpcMainInvokeEvent, raw: unknown) => {
     try {
       if (!raw || typeof raw !== 'object') throw new Error('E_INVALID_REQUEST')
-      const input = raw as Partial<ExportDocxRequest>
+      const input = raw as Partial<ExportDocumentRequest>
       const settings = ctx.settings.read()
-      const request: ExportDocxRequest = {
+      const format = readPandocFormat(input.format)
+      const request: ExportDocumentRequest = {
+        format,
         markdown: readMarkdown(input.markdown),
-        docPath: typeof input.docPath === 'string' && !input.docPath.includes('\0') ? input.docPath : null,
-        suggestedName: readName(input.suggestedName, 'export.docx'),
+        docPath:
+          typeof input.docPath === 'string' && !input.docPath.includes('\0') ? input.docPath : null,
+        suggestedName: readName(input.suggestedName, 'export.' + format),
+        title: typeof input.title === 'string' ? input.title.slice(0, 256) : undefined,
         referenceDoc: typeof input.referenceDoc === 'string' ? input.referenceDoc : ''
       }
       const win = BrowserWindow.fromWebContents(event.sender)
-      const saved = await service.exportDocx(win, request, settings.export.pandoc.path)
+      const saved = await service.exportDocument(win, request, settings.export.pandoc.path)
       return ok(saved)
     } catch (error) {
       return fail(error)
