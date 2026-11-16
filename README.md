@@ -17,7 +17,7 @@
 - **文件**：打开/保存/另存为、未命名文档、最近文件、文件夹树、快速打开（Ctrl+P）、UTF-8/UTF-16/GBK 等编码检测、CRLF/LF 与末尾换行保持、2 MB 渲染上限、原子写、外部修改冲突提示。
 - **导航**：侧栏文件树、实时大纲、文件夹全文搜索（大小写/整词/正则，有界结果）。
 - **恢复**：自动保存（默认关闭）、失焦/关闭恢复草稿、关闭前保存确认、窗口与会话恢复。
-- **导出**：自包含 HTML、Chromium PDF、Word（DOCX）、ODT、RTF、EPUB（均需外部 Pandoc）、打印。
+- **导出**：自包含 HTML、Chromium PDF、Word（DOCX）、ODT、RTF、EPUB（均需外部 Pandoc；SVG 自动转 PNG）、打印。
 - **界面**：顶部菜单（新建/打开/保存/导出/设置等）、Bootstrap Icons、居中内容列与扁平编辑区、浅色/深色/跟随系统、专注/打字机模式、自定义主题（`userData/themes`）、可拖拽侧栏；编辑界面只保留编辑器与可选侧栏。
 - **安全**：`contextIsolation`、`sandbox`、无 Node 的渲染进程、CSP、`mdimg://` 图片白名单、导出 HTML 净化。
 

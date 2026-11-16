@@ -23,6 +23,8 @@ const MAX_INLINE_TOTAL = 50 * 1024 * 1024
 const MAX_REFERENCE_DOC = 50 * 1024 * 1024
 const PANDOC_TIMEOUT_MS = 120_000
 const MAX_PANDOC_BUFFER = 8 * 1024 * 1024
+const MAX_SVG_IMAGE = 10 * 1024 * 1024
+const MAX_SVG_RENDER = 2048
 const PANDOC_FORMATS: Record<
   PandocExportFormat,
   { title: string; extension: string; filter: string; referenceDoc: boolean }
@@ -78,9 +80,14 @@ export class ExportService {
       os.tmpdir(),
       'librepen-' + request.format + '-' + stamp + '.' + format.extension
     )
+    const tempImages: string[] = []
     const title = sanitizeTitle(request.title)
     try {
-      await fsp.writeFile(tempMarkdown, request.markdown, { encoding: 'utf8', mode: 0o600 })
+      const markdown =
+        request.format === 'rtf'
+          ? request.markdown
+          : await prepareSvgImages(request.markdown, docDir, stamp, tempImages)
+      await fsp.writeFile(tempMarkdown, markdown, { encoding: 'utf8', mode: 0o600 })
       await runPandoc(
         pandocPath?.trim() || 'pandoc',
         buildPandocArgs(tempMarkdown, tempOutput, docDir, referenceDoc, request.format, title)
@@ -97,6 +104,7 @@ export class ExportService {
     } finally {
       await fsp.rm(tempMarkdown, { force: true }).catch(() => undefined)
       await fsp.rm(tempOutput, { force: true }).catch(() => undefined)
+      for (const image of tempImages) await fsp.rm(image, { force: true }).catch(() => undefined)
     }
   }
 
@@ -158,6 +166,111 @@ export class ExportService {
       if (!win.isDestroyed()) win.destroy()
       await fsp.rm(temp, { force: true }).catch(() => undefined)
     }
+  }
+}
+
+async function prepareSvgImages(
+  markdown: string,
+  docDir: string | null,
+  stamp: string,
+  outputs: string[]
+): Promise<string> {
+  const imageRegex = /!\[([^\]]*)\]\(\s*(<[^>]*>|[^)\s]+)([^)]*)\)/g
+  const cache = new Map<string, string>()
+  let output = ''
+  let last = 0
+  let index = 0
+  for (const match of markdown.matchAll(imageRegex)) {
+    const start = match.index ?? 0
+    const full = match[0]
+    const rawSrc = match[2]
+    let src = rawSrc.startsWith('<') ? rawSrc.slice(1, -1) : rawSrc
+    try {
+      src = decodeURIComponent(src)
+    } catch {}
+    if (/^(?:https?:|data:|blob:)/i.test(src)) continue
+    if (!/\.svg$/i.test(src)) continue
+    const abs = path.isAbsolute(src) ? src : docDir ? path.resolve(docDir, src) : null
+    if (!abs) continue
+    const key = abs.toLowerCase()
+    let png = cache.get(key)
+    if (!png) {
+      try {
+        const stat = fs.statSync(abs)
+        if (!stat.isFile() || stat.size > MAX_SVG_IMAGE) continue
+        const target = path.join(
+          os.tmpdir(),
+          'librepen-svg-' + stamp + '-' + index++ + '.png'
+        )
+        await renderSvgToPng(abs, target)
+        cache.set(key, target)
+        outputs.push(target)
+        png = target
+      } catch {
+        continue
+      }
+    }
+    const replacement = full.replace(rawSrc, '<' + png.replace(/\\/g, '/') + '>')
+    output += markdown.slice(last, start) + replacement
+    last = start + full.length
+  }
+  return output + markdown.slice(last)
+}
+
+function svgDimensions(raw: string): { width: number; height: number } {
+  const viewBox = /viewBox\s*=\s*["'][-\d.]+\s+[-\d.]+\s+([\d.]+)\s+([\d.]+)["']/i.exec(raw)
+  let width = svgLength(raw, 'width') ?? (viewBox ? Number(viewBox[1]) : 1024)
+  let height = svgLength(raw, 'height') ?? (viewBox ? Number(viewBox[2]) : 1024)
+  if (!Number.isFinite(width) || width <= 0) width = 1024
+  if (!Number.isFinite(height) || height <= 0) height = 1024
+  const scale = Math.min(1, MAX_SVG_RENDER / Math.max(width, height))
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale))
+  }
+}
+
+function svgLength(raw: string, name: string): number | null {
+  const double = new RegExp('\\b' + name + '\\s*=\\s*"([^"]+)"', 'i').exec(raw)
+  const single = new RegExp("\\b" + name + "\\s*=\\s*'([^']+)'", 'i').exec(raw)
+  const value = (double ? double[1] : single ? single[1] : '') ?? ''
+  if (!value || value.includes('%')) return null
+  const parsed = Number.parseFloat(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+async function renderSvgToPng(input: string, output: string): Promise<void> {
+  const raw = fs.readFileSync(input, 'utf8')
+  const { width, height } = svgDimensions(raw)
+  const svgData = fs.readFileSync(input).toString('base64')
+  const html = `<!doctype html><html><body style="margin:0;background:transparent;overflow:hidden"><img src="data:image/svg+xml;base64,${svgData}" width="${width}" height="${height}" style="display:block"></body></html>`
+  const win = new BrowserWindow({
+    show: false,
+    useContentSize: true,
+    width,
+    height,
+    frame: false,
+    transparent: true,
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      offscreen: true
+    }
+  })
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  try {
+    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+    const loaded = await win.webContents.executeJavaScript(
+      'new Promise((resolve) => { const image = document.images[0]; if (!image || image.complete) return resolve(!!image); image.onload = () => resolve(true); image.onerror = () => resolve(false); })'
+    )
+    if (!loaded) throw new Error('svg image failed to load')
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    const image = await win.webContents.capturePage({ x: 0, y: 0, width, height })
+    const png = image.toPNG()
+    if (png.length === 0) throw new Error('empty svg render')
+    await fsp.writeFile(output, png, { mode: 0o600 })
+  } finally {
+    if (!win.isDestroyed()) win.destroy()
   }
 }
 

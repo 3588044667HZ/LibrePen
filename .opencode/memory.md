@@ -28,6 +28,7 @@
 - 打印：复用 PDF 导出管线。
 - Word：DOCX 已通过外部 Pandoc 导出；支持设置 `export.docx.referenceDoc` 参考样式（`--reference-doc`）；Pandoc 路径可配置。
 - ODT / RTF / EPUB：已通过同一 Pandoc 服务导出；RTF 使用 standalone，EPUB 自动补标题。
+- SVG 图片在 DOCX/ODT/EPUB 导出前由隐藏 Chromium 栅格化为 PNG（≤2048px、≤10MB），避免依赖 rsvg-convert。
 - 已知边界：尚无 LaTeX 导出和自定义导出样式；尚无导出取消/进度、Pandoc 自动探测 UI 和 per-file 导出配置。
 
 ### 待办格式

@@ -55,7 +55,8 @@ Markdown source
 
 - 设置中配置 Pandoc 路径；未配置时从 PATH 调用 `pandoc`。
 - 导出 Word 使用 `--from=markdown+... --to=docx`，保留标题、列表、表格、代码、公式、图片和脚注。
-- 图片通过 `--resource-path=<文档目录>` 解析；临时 Markdown 与输出文件在系统临时目录生成，成功后原子写入用户选择路径。
+- 图片通过 `--resource-path=<文档目录>` 解析；SVG 图片先用隐藏 Chromium 窗口栅格化为 PNG（上限 2048px / 10MB）并替换 Markdown 引用，再交给 Pandoc。
+- 临时 Markdown、SVG PNG 与输出文件在系统临时目录生成，成功后原子写入用户选择路径，失败或结束后清理。
 - 外部进程使用参数数组 `execFile(pandocPath, args)`，不使用 shell；超时 120s，stdout/stderr 有上限。
 - Pandoc 缺失、参考样式无效或转换失败时返回可读错误；不会留下半成品目标文件。
 - 尚未依赖 PowerShell/CMD，中文、空格路径均按参数传递。
