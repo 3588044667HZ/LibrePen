@@ -214,6 +214,14 @@
   background: var(--hover);
   color: var(--fg);
 }
+.cm-toc-block {
+  outline: 1px dashed transparent;
+  outline-offset: 4px;
+}
+.cm-toc-block:hover,
+.cm-toc-block:focus-within {
+  outline-color: var(--border);
+}
 .cm-toc-list { padding: 0; margin: 0; }
 .cm-toc-link {
   padding: 2px 4px;
@@ -233,3 +241,45 @@
   border-radius: 0;
 }
 .cm-frontmatter-note { margin: 4px 0; }
+.cm-html-block {
+  width: 100%;
+  margin: 4px 0;
+}
+
+.cm-html-block .cm-block-title {
+  margin-right: auto;
+  color: var(--fg-muted);
+  font-family: var(--ui-font);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cm-html-body {
+  padding: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+.cm-html-body > :first-child {
+  margin-top: 0;
+}
+
+.cm-html-body > :last-child {
+  margin-bottom: 0;
+}
+
+.cm-html-body a {
+  color: var(--link, var(--accent));
+}
+
+.cm-html-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+.cm-html-empty {
+  margin: 0;
+  color: var(--fg-muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+}

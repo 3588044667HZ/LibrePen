@@ -18,10 +18,12 @@
 | 数学块编辑 | ✅ | ✅ KaTeX 块渲染 + 源码编辑 | P1 |
 | 行内数学 | ✅ MathJax | ✅ KaTeX | MVP |
 | Mermaid/流程图 | ✅ | ✅ 懒渲染 + 错误卡 | P1 |
-| TOC | ✅ | ✅ Widget | P1 |
+| TOC | ✅ | ✅ Widget；聚焦可删除/编辑 | P1 |
 | 脚注 | ✅ | 🟡 语法+导出 | P2 悬浮 |
 | 任务列表 | ✅ | ✅ 可点击 | MVP |
-| 高亮/上标/下标 | ✅ | 🟡 命令+导出 | MVP/P2 |
+| 高亮/上标/下标/下划线 | ✅ | 🟡 命令/HTML 渲染+导出 | MVP/P2 |
+| GitHub 提示块 | ✅ | ✅ Note/Tip/Important/Warning/Caution | P1 |
+| 原始 HTML | ✅ | ✅ 白名单渲染（点击回源码） | P1 |
 | Emoji 自动补全 | ✅ | ✅ | P1 |
 | 专注模式 | ✅ | ✅ | P1 |
 | 打字机模式 | ✅ | ✅ | P1 |

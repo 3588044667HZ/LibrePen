@@ -160,6 +160,16 @@ function collectBlocks(state: EditorState): BlockDescriptor[] {
         excluded.push({ from, to })
         return false
       }
+      if (node.name === 'HTMLBlock') {
+        const parentName = node.node.parent?.name
+        if (parentName && parentName !== 'Document') return false
+        const from = doc.lineAt(node.from).from
+        const to = doc.lineAt(node.to).to
+        if (excluded.some((range) => from < range.to && to > range.from)) return false
+        blocks.push({ kind: 'html', from, to, content: doc.sliceString(from, to) })
+        excluded.push({ from, to })
+        return false
+      }
       if (node.name === 'Table') {
         const parentName = node.node.parent?.name
         if (parentName && parentName !== 'Document') return false

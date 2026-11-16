@@ -58,3 +58,17 @@
 - Word 是否只走 Pandoc，还是后续增加纯 JS `docx` 生成器作为无 Pandoc 回退。
 - PDF 默认继续用 Chromium，还是为 LaTeX 公式/分页提供 Pandoc 模式。
 - 导出格式菜单的默认排序和是否记忆上次选择。
+
+## 编辑区补充
+
+- GitHub 提示块：Note/Tip/Important/Warning/Caution 行级渲染。
+- 原始 HTML 块：DOMPurify 白名单 block widget，点击回源码；行内 HTML 支持常见标签与受控 style。
+- TOC：聚焦显示编辑边框，工具栏支持编辑源码和删除。
+- 下划线 `<u>`、上下标 HTML 标签已渲染。
+
+## 打包
+
+- Electron 固定为 45.3.2，electron-builder 固定为 26.0.0。
+- 打包使用本地 `node_modules/electron/dist`（`build.electronDist`），避免每次重新下载 Electron。
+- `npm run dist:win` 生成 NSIS 安装包；`npm run dist:dir` 生成未安装目录。
+- Windows 使用 `resources/icon/icon.ico`，macOS 使用 `icon.icns`，Linux 使用 `icon.png`。

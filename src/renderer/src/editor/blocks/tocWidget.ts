@@ -18,6 +18,10 @@ class TocWidget extends WidgetType {
     const root = document.createElement('nav')
     root.className = 'cm-block cm-toc-block'
     root.setAttribute('aria-label', '文档目录')
+    root.tabIndex = 0
+    root.addEventListener('click', (event) => {
+      if (event.target === root) root.focus()
+    })
     root.appendChild(this.buildToolbar(view))
 
     const outline = extractOutline(view.state.doc.toString())
@@ -65,12 +69,30 @@ class TocWidget extends WidgetType {
     const title = document.createElement('span')
     title.className = 'cm-block-title'
     title.textContent = '目录'
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.className = 'cm-block-action'
-    applyIconButton(button, 'bi-code-slash', '编辑源码')
-    button.addEventListener('click', () => editBlock(view, this.descriptor))
-    toolbar.append(title, button)
+    const editButton = document.createElement('button')
+    editButton.type = 'button'
+    editButton.className = 'cm-block-action'
+    applyIconButton(editButton, 'bi-code-slash', '编辑源码')
+    editButton.addEventListener('click', () => editBlock(view, this.descriptor))
+
+    const removeButton = document.createElement('button')
+    removeButton.type = 'button'
+    removeButton.className = 'cm-block-action'
+    applyIconButton(removeButton, 'bi-trash', '删除目录')
+    removeButton.addEventListener('click', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      const doc = view.state.doc
+      let from = this.descriptor.from
+      const to =
+        this.descriptor.to < doc.length && doc.sliceString(this.descriptor.to, this.descriptor.to + 1) === '\n'
+          ? this.descriptor.to + 1
+          : this.descriptor.to
+      if (from > 0 && doc.sliceString(from - 1, from) === '\n') from--
+      view.dispatch({ changes: { from, to, insert: '' }, selection: { anchor: from } })
+      view.focus()
+    })
+    toolbar.append(title, editButton, removeButton)
     return toolbar
   }
 }

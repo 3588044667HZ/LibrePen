@@ -14,6 +14,7 @@ import { registerIpc } from './ipc/register'
 import { createMainWindow, registerAppIpc } from './window'
 
 app.setName('LibrePen')
+app.setAppUserModelId('com.librepen.app')
 
 registerImageScheme()
 

@@ -1,6 +1,6 @@
 import type { WidgetType } from '@codemirror/view'
 
-export type BlockKind = 'table' | 'code' | 'math' | 'mermaid' | 'toc' | 'frontmatter'
+export type BlockKind = 'table' | 'code' | 'math' | 'mermaid' | 'toc' | 'frontmatter' | 'html'
 
 export interface BlockDescriptor {
   kind: BlockKind

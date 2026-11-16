@@ -16,6 +16,7 @@ import { createMathWidget } from './blocks/mathWidget'
 import { createMermaidWidget } from './blocks/mermaidWidget'
 import { createTocWidget } from './blocks/tocWidget'
 import { createFrontMatterWidget } from './blocks/frontMatterWidget'
+import { createHtmlWidget } from './blocks/htmlWidget'
 
 export interface LivePreviewOptions {
   docPath: string | null
@@ -48,7 +49,8 @@ export function livePreview(options: LivePreviewOptions) {
       math: createMathWidget,
       mermaid: createMermaidWidget,
       toc: createTocWidget,
-      frontmatter: createFrontMatterWidget
+      frontmatter: createFrontMatterWidget,
+      html: createHtmlWidget
     }
   )
 
@@ -88,6 +90,7 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
   const atomics: Range<Decoration>[] = []
   const covered: Array<{ from: number; to: number }> = []
   const linkRanges: Array<{ from: number; to: number }> = []
+  const htmlStack: Array<{ name: string; from: number; to: number; attrs: string }> = []
   const lineClasses = new Map<number, Set<string>>()
   const excluded: Interval[] = []
   const opaque: Array<{ from: number; to: number }> = []
@@ -113,8 +116,15 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
     set.add(className)
   }
 
-  const addMark = (from: number, to: number, className: string): void => {
-    if (from < to) decorations.push(Decoration.mark({ class: className }).range(from, to))
+  const addMark = (
+    from: number,
+    to: number,
+    className: string,
+    attributes?: Record<string, string>
+  ): void => {
+    if (from >= to) return
+    const spec = attributes ? { class: className, attributes } : { class: className }
+    decorations.push(Decoration.mark(spec).range(from, to))
   }
 
   const addReplace = (from: number, to: number, widget: WidgetType): boolean => {
@@ -152,6 +162,33 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
       if (name === 'Document') return true
       if (overlapsRenderedBlock(node.from, node.to)) return false
       if (frontMatter && node.from < frontMatter.to && node.to > frontMatter.from) return false
+      if (name === 'HTMLTag') {
+        const tag = parseInlineHtmlTag(doc.sliceString(node.from, node.to))
+        if (tag) {
+          if (tag.closing) {
+            let index = -1
+            for (let i = htmlStack.length - 1; i >= 0; i--) {
+              if (htmlStack[i].name === tag.name) {
+                index = i
+                break
+              }
+            }
+            if (index >= 0) {
+              const open = htmlStack[index]
+              htmlStack.splice(index, 1)
+              const mark = inlineHtmlMark(open.name, open.attrs)
+              if (mark && node.from > open.to && !touches(open.from, node.to)) {
+                addMark(open.to, node.from, mark.className, mark.attributes)
+                addHidden(open.from, open.to)
+                addHidden(node.from, node.to)
+              }
+            }
+          } else if (!tag.selfClosing && INLINE_HTML_TAGS.has(tag.name)) {
+            htmlStack.push({ name: tag.name, from: node.from, to: node.to, attrs: tag.attrs })
+          }
+        }
+        return false
+      }
       if (name === 'Autolink') {
         let urlNode: { from: number; to: number } | null = null
         let openMark: { from: number; to: number } | null = null
@@ -280,6 +317,7 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
       }
       if (name === 'Link') {
         const raw = doc.sliceString(node.from, node.to)
+        if (/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/i.test(raw)) return true
         const parsed = parseLink(raw)
         let textFrom = 0
         let textTo = 0
@@ -357,11 +395,13 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
   const startLine = doc.lineAt(viewport.from).number
   const endLine = doc.lineAt(viewport.to).number
   let inMathBlock = false
+  let alert: AlertKind | null = null
   for (let n = startLine; n <= endLine; n++) {
     const line = doc.line(n)
     const text = line.text
     if (inRenderedBlock(line.from)) continue
     if (text.trim().length === 0) {
+      alert = null
       if (view.state.doc.length > 0) addLineClass(line.from, 'cm-md-blank')
       continue
     }
@@ -384,6 +424,21 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
     if (quote) {
       addLineClass(line.from, 'cm-md-quote-line')
       if (!touches(line.from, line.to)) addHidden(line.from, line.from + quote[1].length)
+      const quoteText = text.slice(quote[1].length)
+      const alertMatch = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i.exec(quoteText.trim())
+      if (alertMatch) {
+        alert = alertMatch[1].toLowerCase() as AlertKind
+        addLineClass(line.from, 'cm-md-alert cm-md-alert-' + alert + ' cm-md-alert-header')
+        if (!touches(line.from, line.to)) {
+          const leading = quoteText.length - quoteText.trimStart().length
+          const start = line.from + quote[1].length + leading
+          addReplace(start, line.to, new AlertTitleWidget(alert, start))
+        }
+      } else if (alert) {
+        addLineClass(line.from, 'cm-md-alert cm-md-alert-' + alert)
+      }
+    } else {
+      alert = null
     }
     if (/^\s{0,3}(?:[-*+]|\d+[.)])\s+/.test(text)) addLineClass(line.from, 'cm-md-list-line')
     const bulletBase = line.from + (quote ? quote[1].length : 0)
@@ -456,6 +511,140 @@ function frontMatterRange(state: EditorState): { from: number; to: number } | nu
   const match = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(text)
   if (!match) return null
   return { from: 0, to: match[0].length }
+}
+
+type AlertKind = 'note' | 'tip' | 'important' | 'warning' | 'caution'
+
+const ALERT_LABELS: Record<AlertKind, string> = {
+  note: 'Note',
+  tip: 'Tip',
+  important: 'Important',
+  warning: 'Warning',
+  caution: 'Caution'
+}
+
+const ALERT_ICONS: Record<AlertKind, string> = {
+  note: 'bi-info-circle',
+  tip: 'bi-lightbulb',
+  important: 'bi-exclamation-circle',
+  warning: 'bi-exclamation-triangle',
+  caution: 'bi-exclamation-octagon'
+}
+
+class AlertTitleWidget extends WidgetType {
+  constructor(
+    private readonly kind: AlertKind,
+    private readonly pos: number
+  ) {
+    super()
+  }
+
+  eq(other: WidgetType): boolean {
+    return other instanceof AlertTitleWidget && other.kind === this.kind && other.pos === this.pos
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const title = document.createElement('span')
+    title.className = 'cm-md-alert-title'
+    const icon = document.createElement('i')
+    icon.className = 'bi ' + ALERT_ICONS[this.kind]
+    icon.setAttribute('aria-hidden', 'true')
+    const label = document.createElement('span')
+    label.textContent = ALERT_LABELS[this.kind]
+    title.append(icon, label)
+    selectOnMouseDown(title, view, this.pos)
+    return title
+  }
+
+  ignoreEvent(): boolean {
+    return true
+  }
+}
+
+const INLINE_HTML_TAGS = new Set([
+  'u',
+  'span',
+  'strong',
+  'b',
+  'em',
+  'i',
+  'del',
+  's',
+  'strike',
+  'mark',
+  'code',
+  'a',
+  'sub',
+  'sup',
+  'kbd',
+  'ins',
+  'small'
+])
+
+function parseInlineHtmlTag(
+  raw: string
+): { closing: boolean; name: string; attrs: string; selfClosing: boolean } | null {
+  const match = /^<\s*(\/?)\s*([A-Za-z][\w:-]*)([^>]*)>$/.exec(raw)
+  if (!match) return null
+  return {
+    closing: match[1] === '/',
+    name: match[2].toLowerCase(),
+    attrs: match[3] ?? '',
+    selfClosing: /\/\s*$/.test(match[3] ?? '')
+  }
+}
+
+function inlineHtmlMark(
+  name: string,
+  attrs: string
+): { className: string; attributes?: Record<string, string> } | null {
+  const classes: Record<string, string> = {
+    u: 'cm-md-underline',
+    strong: 'cm-md-strong',
+    b: 'cm-md-strong',
+    em: 'cm-md-em',
+    i: 'cm-md-em',
+    del: 'cm-md-strike',
+    s: 'cm-md-strike',
+    strike: 'cm-md-strike',
+    mark: 'cm-md-highlight',
+    code: 'cm-md-inline-code',
+    a: 'cm-md-link',
+    sub: 'cm-md-sub',
+    sup: 'cm-md-sup',
+    kbd: 'cm-md-kbd',
+    ins: 'cm-md-underline',
+    small: 'cm-md-small'
+  }
+  if (name === 'span') {
+    const style = safeInlineStyle(attrs)
+    return { className: 'cm-md-html-inline', attributes: style ? { style } : undefined }
+  }
+  const className = classes[name]
+  return className ? { className } : null
+}
+
+function safeInlineStyle(attrs: string): string {
+  const match = /\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs)
+  if (!match) return ''
+  const allowed = new Set([
+    'color',
+    'background-color',
+    'font-weight',
+    'font-style',
+    'font-size',
+    'font-family',
+    'text-decoration',
+    'text-underline-offset',
+    'letter-spacing',
+    'opacity',
+    'vertical-align'
+  ])
+  return (match[1] ?? match[2] ?? '')
+    .split(';')
+    .map((item) => item.trim())
+    .filter((item) => allowed.has(item.split(':')[0]?.trim().toLowerCase() ?? ''))
+    .join(';')
 }
 
 function parseImage(raw: string): { alt: string; src: string } | null {
