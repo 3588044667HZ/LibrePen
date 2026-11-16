@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F8FBFF"/>
+      <stop offset="1" stop-color="#DCEEFF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="43%" r="55%">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="plume" x1=".2" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#8FD0FF"/>
+      <stop offset=".5" stop-color="#4C9BFF"/>
+      <stop offset="1" stop-color="#1857C7"/>
+    </linearGradient>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0A2A52" flood-opacity=".22"/>
+    </filter>
+    <clipPath id="featherClip">
+      <path d="M512 142 C588 224 650 328 652 438 C654 514 626 576 596 616 C620 640 626 678 606 706 C580 742 548 762 512 802 C476 762 444 742 418 706 C398 678 404 640 428 616 C398 576 370 514 372 438 C374 328 436 224 512 142 Z"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <rect x="28" y="28" width="968" height="968" rx="198" fill="none" stroke="#FFFFFF" stroke-opacity=".68" stroke-width="6"/>
+  <circle cx="512" cy="470" r="342" fill="url(#glow)"/>
+
+  <g filter="url(#shadow)">
+    <path d="M512 142 C588 224 650 328 652 438 C654 514 626 576 596 616 C620 640 626 678 606 706 C580 742 548 762 512 802 C476 762 444 742 418 706 C398 678 404 640 428 616 C398 576 370 514 372 438 C374 328 436 224 512 142 Z" fill="url(#plume)" stroke="#0A2A52" stroke-opacity=".16" stroke-width="6"/>
+
+    <g clip-path="url(#featherClip)" fill="none" stroke="#EAF7FF" stroke-opacity=".62" stroke-width="14" stroke-linecap="round">
+      <path d="M500 290 C462 278 430 256 408 228"/>
+      <path d="M500 374 C452 362 418 338 392 308"/>
+      <path d="M500 458 C450 450 414 430 386 404"/>
+      <path d="M500 542 C452 548 418 538 394 518"/>
+      <path d="M500 620 C462 636 436 640 416 636"/>
+      <path d="M524 290 C562 278 594 256 616 228"/>
+      <path d="M524 374 C572 362 606 338 632 308"/>
+      <path d="M524 458 C574 450 610 430 638 404"/>
+      <path d="M524 542 C572 548 606 538 630 518"/>
+      <path d="M524 620 C562 636 588 640 608 636"/>
+    </g>
+
+    <path d="M512 190 V650 H690" fill="none" stroke="#0A2A52" stroke-width="92" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M512 190 V650 H690" fill="none" stroke="#FFFFFF" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -15,12 +15,14 @@ export function createMainWindow(ctx: AppContext): BrowserWindow {
     settings.appearance.theme === 'dark' ||
     (settings.appearance.theme === 'system' && nativeTheme?.shouldUseDarkColors === true)
 
+  const iconFile = process.platform === 'win32' ? 'icon.ico' : 'icon.png'
   const win = new BrowserWindow({
     ...bounds,
     minWidth: 720,
     minHeight: 480,
     show: false,
     frame: false,
+    icon: path.join(app.getAppPath(), 'resources', 'icon', iconFile),
     titleBarStyle: process.platform === 'win32' || process.platform === 'darwin' ? 'hidden' : 'default',
     titleBarOverlay:
       process.platform === 'win32'
