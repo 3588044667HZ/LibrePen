@@ -362,7 +362,7 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
     const text = line.text
     if (inRenderedBlock(line.from)) continue
     if (text.trim().length === 0) {
-      addLineClass(line.from, 'cm-md-blank')
+      if (view.state.doc.length > 0) addLineClass(line.from, 'cm-md-blank')
       continue
     }
     if (frontMatter && line.from >= frontMatter.from && line.from < frontMatter.to) continue
