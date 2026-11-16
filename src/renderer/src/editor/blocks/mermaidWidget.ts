@@ -15,21 +15,35 @@ interface MermaidParts {
 const cache = new Map<string, Promise<string>>()
 let counter = 0
 let mermaidApi: Promise<MermaidApi> | null = null
-let mermaidTheme: MermaidTheme | null = null
+let mermaidConfigKey: string | null = null
 
 async function loadMermaid(theme: MermaidTheme): Promise<MermaidApi> {
   if (!mermaidApi) {
     mermaidApi = import('mermaid').then(({ default: mermaid }) => mermaid)
   }
   const mermaid = await mermaidApi
-  if (mermaidTheme !== theme) {
+  const fontSize =
+    getComputedStyle(document.documentElement).getPropertyValue('--mermaid-font-size').trim() ||
+    '16px'
+  const configKey = theme + ':' + fontSize
+  if (mermaidConfigKey !== configKey) {
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'strict',
       theme: theme === 'dark' ? 'dark' : 'default',
-      fontFamily: 'inherit'
+      fontFamily: 'inherit',
+      themeVariables: { fontSize },
+      flowchart: { useMaxWidth: false },
+      sequence: { useMaxWidth: false },
+      gantt: { useMaxWidth: false },
+      journey: { useMaxWidth: false },
+      class: { useMaxWidth: false },
+      state: { useMaxWidth: false },
+      er: { useMaxWidth: false },
+      pie: { useMaxWidth: false },
+      mindmap: { useMaxWidth: false }
     })
-    mermaidTheme = theme
+    mermaidConfigKey = configKey
   }
   return mermaid
 }

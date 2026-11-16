@@ -152,6 +152,20 @@ export function registerFilesIpc(ctx: AppContext): void {
     }
   })
 
+  ipcMain.handle(IPC.dialogOpenReferenceDoc, async (event: IpcMainInvokeEvent) => {
+    try {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const result = await showOpenDialog(win, {
+        title: '选择 Word 参考样式',
+        properties: ['openFile'],
+        filters: [{ name: 'Word 参考样式', extensions: ['docx'] }]
+      })
+      return result.canceled ? null : (result.filePaths[0] ?? null)
+    } catch {
+      return null
+    }
+  })
+
   ipcMain.handle(
     IPC.dialogConfirm,
     async (event: IpcMainInvokeEvent, raw: unknown) => {

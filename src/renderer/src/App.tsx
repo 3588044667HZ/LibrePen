@@ -612,6 +612,28 @@ export default function App() {
     }
   }
 
+  async function exportDocx(): Promise<void> {
+    const current = docRef.current
+    if (!current) return
+    const content = editorRef.current?.getContent() ?? contentRef.current
+    const base = current.displayName.replace(/\.[^.]+$/, '')
+    const suggested = joinPath(dirName(current.path), `${base}.docx`)
+    const result = await window.api.export.docx({
+      markdown: content,
+      docPath: current.path,
+      suggestedName: suggested,
+      referenceDoc: settings.export.docx.referenceDoc || undefined
+    })
+    if (!result.ok) {
+      showToast(result.error ?? 'Word 导出失败', true)
+      return
+    }
+    if (result.value) {
+      showToast('已导出 Word')
+      if (settings.export.general.openAfterExport) await window.api.shell.openPath(result.value)
+    }
+  }
+
   async function exportPdf(): Promise<void> {
     const payload = exportPayload()
     if (!payload) return
@@ -715,6 +737,9 @@ export default function App() {
         return
       case 'export-html':
         void exportHtml()
+        return
+      case 'export-docx':
+        void exportDocx()
         return
       case 'export-pdf':
         void exportPdf()

@@ -220,6 +220,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
             }
           }),
           EditorView.domEventHandlers({
+            mousedown: (event, view) => handleDocumentEndClick(event, view),
             paste: (event) => handlePaste(event),
             drop: (event) => handleDrop(event),
             contextmenu: (event) => {
@@ -648,6 +649,48 @@ function stripFormattingBlock(block: string): string {
     out.push(stripFormatting(line))
   }
   return out.join('\n')
+}
+
+function handleDocumentEndClick(event: MouseEvent, view: EditorView): boolean {
+  if (
+    event.button !== 0 ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    event.altKey
+  ) {
+    return false
+  }
+  const content = view.contentDOM.getBoundingClientRect()
+  if (
+    event.clientX < content.left ||
+    event.clientX > content.right ||
+    event.clientY < content.top ||
+    event.clientY > content.bottom
+  ) {
+    return false
+  }
+  const target = event.target
+  if (target instanceof Element && target.closest('.cm-block')) return false
+  const last = view.state.doc.line(view.state.doc.lines)
+  const coords = view.coordsAtPos(view.state.doc.length)
+  if (!coords || event.clientY <= coords.bottom + 2) return false
+  event.preventDefault()
+  if (last.text.trim().length > 0) {
+    const end = view.state.doc.length
+    view.dispatch({
+      changes: { from: end, insert: '\n' },
+      selection: { anchor: end + 1 },
+      scrollIntoView: true
+    })
+  } else {
+    view.dispatch({
+      selection: { anchor: view.state.doc.length },
+      scrollIntoView: true
+    })
+  }
+  view.focus()
+  return true
 }
 
 function isImageFile(file: File): boolean {

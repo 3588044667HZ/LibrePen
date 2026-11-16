@@ -49,16 +49,28 @@ Markdown source
 - 隐藏窗口截取 900px 宽内容 → `capturePage` → PNG；可选宽度/质量。
 - 导出整页长图：先测量 `scrollHeight`，调整窗口高度（上限 16,384px）后分段拼接（P2）。
 
-## 6. Pandoc（P1）
+## 6. Pandoc 与 Word 导出
 
-- 设置中配置 `pandocPath`；自动探测 `pandoc --version`。
-- 支持导出：docx、odt、rtf、epub、latex、rst、mediawiki、textile、opml、native。
-- 安全：
-  - 命令与参数使用数组形式 `spawn(pandocPath, args)`，不经 shell。
-  - 输出到临时目录，成功后移动到用户选择路径。
-  - 超时 120s；stdout/stderr 截断 8KB。
-  - 不自动执行用户自定义 pandoc 参数中的 `--lua-filter` 之外的可执行项；P1 仅允许模板/格式参数白名单。
-- 导入：P1，`pandoc -f <format> -t gfm` 生成 Markdown 后打开为未命名文档。
+### 6.1 当前实现：DOCX
+
+- 设置中配置 Pandoc 路径；未配置时从 PATH 调用 `pandoc`。
+- 导出 Word 使用 `--from=markdown+... --to=docx`，保留标题、列表、表格、代码、公式、图片和脚注。
+- 图片通过 `--resource-path=<文档目录>` 解析；临时 Markdown 与输出文件在系统临时目录生成，成功后原子写入用户选择路径。
+- 外部进程使用参数数组 `execFile(pandocPath, args)`，不使用 shell；超时 120s，stdout/stderr 有上限。
+- Pandoc 缺失、参考样式无效或转换失败时返回可读错误；不会留下半成品目标文件。
+- 尚未依赖 PowerShell/CMD，中文、空格路径均按参数传递。
+
+### 6.2 Word 样式插件：reference.docx
+
+- 设置项 `export.docx.referenceDoc` 指向一个 `.docx` 参考文档，作为 `--reference-doc` 传入。
+- 参考文档定义 `Normal`、`Heading 1–6`、`Quote`、`Source Code`、表格、脚注、超链接等样式；主题包只需替换该文件，不执行 CSS 或 JS。
+- 不允许 `.docm`、宏或脚本；参考文件必须是已存在的普通文件，大小限制 50MB。
+- 参考样式路径会随设置在 settings.json 中保存；用户主题 CSS 不自动影响 Word。
+
+### 6.3 后续格式
+
+- ODT、RTF、EPUB、LaTeX、RST、MediaWiki、Textile、OPML、native 复用同一 Pandoc 服务和错误处理。
+- 导入：DOCX/EPUB/LaTeX 经 `pandoc -f <format> -t gfm` 生成 Markdown 后打开为未命名文档。
 
 ## 7. 自定义命令导出（P2）
 
@@ -92,6 +104,7 @@ interface ExportSettings {
          theme: 'light'; printBackground: boolean };
   general: { openAfterExport: boolean; defaultFolder: 'same'|'ask'|'custom';
              customFolder?: string };
+  docx: { referenceDoc: string };
   pandoc: { path?: string };
 }
 ```
@@ -105,3 +118,4 @@ interface ExportSettings {
 - HTML 超 50MB 拒绝 PDF 导出并提示。
 - `printToPDF` 失败（Electron 版本差异）回退：生成 HTML 并提示用户浏览器打印。
 - 导出过程中禁用重复点击，显示进度 toast。
+- Word 导出缺少 Pandoc 时提示安装或在设置中填写路径；参考样式缺失时拒绝导出。

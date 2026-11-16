@@ -117,7 +117,7 @@ html[data-theme='dark'] .cm-code-block {
   border-right: 1px solid var(--border);
   color: var(--fg-muted);
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: var(--code-font-size, 12.5px);
   line-height: 1.6;
   text-align: right;
   opacity: 0.7;
@@ -137,7 +137,7 @@ html[data-theme='dark'] .cm-code-block {
   background: transparent;
   color: var(--fg);
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: var(--code-font-size, 12.5px);
   line-height: 1.6;
   tab-size: 2;
 }
@@ -254,7 +254,7 @@ html[data-theme='dark'] .cm-code-block {
 }
 
 .cm-math-block .cm-math-body .katex {
-  font-size: 1.05em;
+  font-size: var(--math-block-font-size, 1.05em);
 }
 
 .cm-math-body .katex-display {
@@ -322,6 +322,7 @@ html[data-theme='dark'] .cm-code-block {
 
 .cm-mermaid-diagram svg {
   display: block;
+  max-width: 100%;
   height: auto;
 }
 
@@ -375,7 +376,7 @@ html[data-theme='dark'] .cm-code-block {
 .cm-block-action:hover { background: var(--hover); color: var(--fg); }
 .cm-block-action .bi { font-size: 13px; }
 .cm-code-block {
-  border: 1px solid var(--border);
+  border: 1px solid var(--code-border, var(--border));
   background: var(--code-bg);
 }
 .cm-code-block > .cm-block-toolbar {
@@ -386,7 +387,7 @@ html[data-theme='dark'] .cm-code-block {
 .cm-math-block,
 .cm-mermaid-block { background: transparent; }
 .cm-math-body { padding: 8px 0; }
-.cm-mermaid-body { padding: 8px 0; }
+.cm-mermaid-body { padding: 0 0 8px; }
 .cm-math-error,
 .cm-mermaid-error {
   max-width: none;

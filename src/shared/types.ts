@@ -130,6 +130,13 @@ export interface ExportPdfRequest {
   printBackground?: boolean
 }
 
+export interface ExportDocxRequest {
+  markdown: string
+  docPath: string | null
+  suggestedName: string
+  referenceDoc?: string
+}
+
 export interface SearchRequest {
   root: string
   query: string
@@ -149,6 +156,9 @@ export interface ExportSettings {
     pageSize: 'A4' | 'Letter' | 'A5' | 'Legal'
     marginMm: number
     printBackground: boolean
+  }
+  docx: {
+    referenceDoc: string
   }
   general: {
     openAfterExport: boolean

@@ -9,6 +9,7 @@ export const IPC = {
   dialogOpenFolder: 'dialog:open-folder',
   dialogConfirm: 'dialog:confirm',
   dialogUnsaved: 'dialog:unsaved',
+  dialogOpenReferenceDoc: 'dialog:open-reference-doc',
 
   fileRead: 'file:read',
   fileSave: 'file:save',
@@ -38,6 +39,7 @@ export const IPC = {
 
   exportHtml: 'export:html',
   exportPdf: 'export:pdf',
+  exportDocx: 'export:docx',
   printDocument: 'print:document',
 
   themesList: 'themes:list',

@@ -22,7 +22,8 @@ const api: LibrePenApi = {
     openFile: () => ipcRenderer.invoke(IPC.dialogOpenFile),
     openFolder: () => ipcRenderer.invoke(IPC.dialogOpenFolder),
     confirm: (options) => ipcRenderer.invoke(IPC.dialogConfirm, options),
-    unsavedChanges: (title) => ipcRenderer.invoke(IPC.dialogUnsaved, title)
+    unsavedChanges: (title) => ipcRenderer.invoke(IPC.dialogUnsaved, title),
+    openReferenceDoc: () => ipcRenderer.invoke(IPC.dialogOpenReferenceDoc)
   },
   files: {
     read: (path) => ipcRenderer.invoke(IPC.fileRead, path),
@@ -74,6 +75,7 @@ const api: LibrePenApi = {
   export: {
     html: (request) => ipcRenderer.invoke(IPC.exportHtml, request),
     pdf: (request) => ipcRenderer.invoke(IPC.exportPdf, request),
+    docx: (request) => ipcRenderer.invoke(IPC.exportDocx, request),
     print: (html) => ipcRenderer.invoke(IPC.printDocument, html)
   },
   clipboard: {

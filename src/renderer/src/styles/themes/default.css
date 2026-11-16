@@ -1,0 +1,43 @@
+:root {
+  --link: #4183c4;
+  --quote-fg: #777777;
+  --quote-border: #dfe2e5;
+  --quote-border-width: 4px;
+  --quote-padding-left: 15px;
+  --quote-padding-right: 15px;
+  --heading-divider: #eeeeee;
+  --heading-divider-width: 1px;
+  --heading-1-size: 2.25em;
+  --heading-2-size: 1.75em;
+  --heading-3-size: 1.5em;
+  --heading-4-size: 1.25em;
+  --heading-5-size: 1em;
+  --heading-6-size: 1em;
+  --heading-1-line-height: 1.2;
+  --heading-2-line-height: 1.225;
+  --heading-3-line-height: 1.43;
+  --heading-4-line-height: 1.4;
+  --heading-5-line-height: 1.4;
+  --heading-6-line-height: 1.4;
+  --heading-6-color: #777777;
+  --heading-pad-top-1: 3.2px;
+  --heading-pad-top-2: 3.2px;
+  --heading-pad-top-3: 3.2px;
+  --heading-pad-top-4: 3.2px;
+  --heading-pad-top-5: 3.2px;
+  --heading-pad-top-6: 3.2px;
+  --heading-pad-bottom: 3.2px;
+  --blank-line-height: 0.8;
+  --math-block-font-size: 0.95rem;
+  --mermaid-font-size: 15.2px;
+  --code-font-size: 0.9rem;
+  --code-border: #e7eaed;
+}
+
+html[data-theme='dark'] {
+  --link: #6ea8d8;
+  --quote-fg: #b0b0b0;
+  --quote-border: #3b434b;
+  --heading-divider: #333333;
+  --heading-6-color: #9d9d9d;
+}

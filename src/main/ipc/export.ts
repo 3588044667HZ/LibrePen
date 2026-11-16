@@ -1,16 +1,23 @@
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { IPC } from '@shared/ipc'
-import type { ExportHtmlRequest, ExportPdfRequest } from '@shared/types'
+import type { ExportDocxRequest, ExportHtmlRequest, ExportPdfRequest } from '@shared/types'
 import type { AppContext } from '../context'
 import { ExportService } from '../services/export'
 import { fail, ok } from './result'
 
 const MAX_HTML_LENGTH = 50_000_000
 const PAGE_SIZES = new Set(['A4', 'Letter', 'A5', 'Legal'])
+const MAX_MARKDOWN_LENGTH = 50_000_000
 
 function readHtml(value: unknown): string {
   if (typeof value !== 'string') throw new Error('E_INVALID_REQUEST')
   if (value.length > MAX_HTML_LENGTH) throw new Error('E_EXPORT_TOO_LARGE')
+  return value
+}
+
+function readMarkdown(value: unknown): string {
+  if (typeof value !== 'string') throw new Error('E_INVALID_REQUEST')
+  if (value.length > MAX_MARKDOWN_LENGTH) throw new Error('E_EXPORT_TOO_LARGE')
   return value
 }
 
@@ -36,6 +43,25 @@ export function registerExportIpc(ctx: AppContext): void {
       }
       const win = BrowserWindow.fromWebContents(event.sender)
       const saved = await service.exportHtml(win, request)
+      return ok(saved)
+    } catch (error) {
+      return fail(error)
+    }
+  })
+
+  ipcMain.handle(IPC.exportDocx, async (event: IpcMainInvokeEvent, raw: unknown) => {
+    try {
+      if (!raw || typeof raw !== 'object') throw new Error('E_INVALID_REQUEST')
+      const input = raw as Partial<ExportDocxRequest>
+      const settings = ctx.settings.read()
+      const request: ExportDocxRequest = {
+        markdown: readMarkdown(input.markdown),
+        docPath: typeof input.docPath === 'string' && !input.docPath.includes('\0') ? input.docPath : null,
+        suggestedName: readName(input.suggestedName, 'export.docx'),
+        referenceDoc: typeof input.referenceDoc === 'string' ? input.referenceDoc : ''
+      }
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const saved = await service.exportDocx(win, request, settings.export.pandoc.path)
       return ok(saved)
     } catch (error) {
       return fail(error)

@@ -5,6 +5,7 @@ import type {
   DocPayload,
   DraftEntry,
   DraftSaveRequest,
+  ExportDocxRequest,
   ExportHtmlRequest,
   ExportPdfRequest,
   FileNode,
@@ -44,6 +45,7 @@ export interface LibrePenApi {
     openFolder(): Promise<string | null>
     confirm(options: ConfirmOptions): Promise<boolean>
     unsavedChanges(title: string): Promise<UnsavedChoice>
+    openReferenceDoc(): Promise<string | null>
   }
   files: {
     read(path: string): Promise<Result<DocPayload>>
@@ -89,6 +91,7 @@ export interface LibrePenApi {
   export: {
     html(request: ExportHtmlRequest): Promise<Result<string | null>>
     pdf(request: ExportPdfRequest): Promise<Result<string | null>>
+    docx(request: ExportDocxRequest): Promise<Result<string | null>>
     print(html: string): Promise<Result<void>>
   }
   clipboard: {

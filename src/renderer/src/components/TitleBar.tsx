@@ -39,6 +39,7 @@ const MENUS: MenuGroup[] = [
       { label: '恢复最近草稿', command: 'recover-draft', icon: 'bi-clock-history' },
       { separator: true, label: '' },
       { label: '导出 HTML', command: 'export-html', icon: 'bi-filetype-html' },
+      { label: '导出 Word', command: 'export-docx', icon: 'bi-file-earmark-word' },
       { label: '导出 PDF', command: 'export-pdf', icon: 'bi-filetype-pdf' },
       { label: '打印', command: 'print', icon: 'bi-printer', shortcut: 'Ctrl+Shift+P' },
       { separator: true, label: '' },

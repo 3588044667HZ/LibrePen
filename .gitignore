@@ -10,3 +10,7 @@ Thumbs.db
 coverage/
 .idea/
 .tmp-*/
+
+# Local style extraction dumps
+*-copied.css
+pending-typora.css

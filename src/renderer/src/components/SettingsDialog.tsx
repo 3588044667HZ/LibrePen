@@ -42,6 +42,11 @@ export function SettingsDialog(props: SettingsDialogProps) {
     props.onChange({ general: patch })
   const patchExport = (patch: Record<string, unknown>): void => props.onChange({ export: patch })
 
+  const pickReferenceDoc = async (): Promise<void> => {
+    const filePath = await window.api.dialog.openReferenceDoc()
+    if (filePath) patchExport({ docx: { referenceDoc: filePath } })
+  }
+
   return (
     <div
       className="dialog-overlay"
@@ -380,7 +385,23 @@ export function SettingsDialog(props: SettingsDialogProps) {
                   onChange={(value) => patchExport({ pdf: { marginMm: value } })}
                 />
               </Row>
-              <Row label="Pandoc 路径" hint="可选，用于后续导入/导出">
+              <Row label="Word 参考样式" hint="Pandoc --reference-doc，选择 .docx">
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: '100%' }}>
+                  <input
+                    type="text"
+                    style={{ flex: 1, minWidth: 0 }}
+                    value={settings.export.docx.referenceDoc}
+                    placeholder="使用 Pandoc 默认样式"
+                    onChange={(event) =>
+                      patchExport({ docx: { referenceDoc: event.target.value } })
+                    }
+                  />
+                  <button className="btn" onClick={() => void pickReferenceDoc()}>
+                    选择
+                  </button>
+                </div>
+              </Row>
+              <Row label="Pandoc 路径" hint="可选，用于 Word 导出">
                 <input
                   type="text"
                   value={settings.export.pandoc.path ?? ''}

@@ -27,13 +27,13 @@ export function editorTheme(settings: Settings, dark: boolean) {
           lineHeight: 'var(--editor-line-height)'
         },
         '.cm-content': {
-          maxWidth: 'none',
+          maxWidth: 'var(--content-width, 920px)',
           width: '100%',
-          margin: '0',
-          padding: '18px 0 45vh',
+          margin: '0 auto',
+          padding: '30px 0 45vh',
           caretColor: 'var(--accent)'
         },
-        '.cm-line': { padding: '0 16px' },
+        '.cm-line': { padding: '0 var(--content-padding-x, 30px)' },
         '.cm-gutters': {
           backgroundColor: 'var(--bg)',
           color: 'var(--fg-muted)',

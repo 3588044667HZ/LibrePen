@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import os from 'node:os'
@@ -8,12 +9,16 @@ import {
   type SaveDialogReturnValue,
   type SaveDialogOptions
 } from 'electron'
-import type { ExportHtmlRequest, ExportPdfRequest } from '@shared/types'
+import type { ExportDocxRequest, ExportHtmlRequest, ExportPdfRequest } from '@shared/types'
 import { assertSafePath, decodeImageUrlPath, mimeForImage, resolveSafeImagePath } from '../lib/paths'
 import { atomicWriteFile } from '../lib/atomic-write'
 
 const MAX_INLINE_IMAGE = 5 * 1024 * 1024
 const MAX_INLINE_TOTAL = 50 * 1024 * 1024
+const MAX_REFERENCE_DOC = 50 * 1024 * 1024
+const PANDOC_TIMEOUT_MS = 120_000
+const MAX_PANDOC_BUFFER = 8 * 1024 * 1024
+
 const PRINT_CSP =
   "default-src 'none'; img-src 'self' mdimg: data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; media-src 'self' mdimg: data: https:; object-src 'none'; frame-src 'none'; connect-src 'none'"
 
@@ -30,6 +35,41 @@ export class ExportService {
     const html = inlineImages(request.html)
     atomicWriteFile(safeTarget, html)
     return safeTarget
+  }
+
+  async exportDocx(
+    parent: BrowserWindow | null,
+    request: ExportDocxRequest,
+    pandocPath: string | undefined
+  ): Promise<string | null> {
+    const result = await saveDialog(parent, {
+      title: '导出 Word',
+      defaultPath: safeSuggestedName(request.suggestedName, 'export.docx'),
+      filters: [{ name: 'Word', extensions: ['docx'] }]
+    })
+    if (result.canceled || !result.filePath) return null
+    const target = /\.docx$/i.test(result.filePath) ? result.filePath : `${result.filePath}.docx`
+    const safeTarget = assertSafePath(target)
+    const referenceDoc = validateReferenceDoc(request.referenceDoc)
+    const docDir = request.docPath && path.isAbsolute(request.docPath) ? path.dirname(request.docPath) : null
+    const stamp = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const tempMarkdown = path.join(os.tmpdir(), `librepen-docx-${stamp}.md`)
+    const tempOutput = path.join(os.tmpdir(), `librepen-docx-${stamp}.docx`)
+    try {
+      await fsp.writeFile(tempMarkdown, request.markdown, { encoding: 'utf8', mode: 0o600 })
+      await runPandoc(
+        pandocPath?.trim() || 'pandoc',
+        buildDocxArgs(tempMarkdown, tempOutput, docDir, referenceDoc)
+      )
+      const stat = await fsp.stat(tempOutput)
+      if (!stat.isFile() || stat.size === 0) throw pandocError('E_PANDOC_FAILED', 'Pandoc 没有生成 Word 文件')
+      if (stat.size > 200 * 1024 * 1024) throw pandocError('E_EXPORT_TOO_LARGE', 'Word 导出文件过大')
+      atomicWriteFile(safeTarget, await fsp.readFile(tempOutput))
+      return safeTarget
+    } finally {
+      await fsp.rm(tempMarkdown, { force: true }).catch(() => undefined)
+      await fsp.rm(tempOutput, { force: true }).catch(() => undefined)
+    }
   }
 
   async exportPdf(parent: BrowserWindow | null, request: ExportPdfRequest): Promise<string | null> {
@@ -91,6 +131,81 @@ export class ExportService {
       await fsp.rm(temp, { force: true }).catch(() => undefined)
     }
   }
+}
+
+function buildDocxArgs(
+  input: string,
+  output: string,
+  docDir: string | null,
+  referenceDoc: string | null
+): string[] {
+  const args = [
+    '--from',
+    'markdown+mark+footnotes+definition_lists+task_lists+tex_math_dollars+superscript+subscript+strikeout+pipe_tables',
+    '--to',
+    'docx',
+    '--output',
+    output
+  ]
+  if (referenceDoc) args.push('--reference-doc', referenceDoc)
+  if (docDir) args.push('--resource-path', docDir)
+  args.push(input)
+  return args
+}
+
+function validateReferenceDoc(value: unknown): string | null {
+  if (value === undefined || value === null || value === '') return null
+  if (typeof value !== 'string' || value.length > 4096) {
+    throw pandocError('E_REFERENCE_DOC', 'Word 参考样式路径无效')
+  }
+  let filePath: string
+  try {
+    filePath = assertSafePath(value)
+  } catch {
+    throw pandocError('E_REFERENCE_DOC', 'Word 参考样式路径无效')
+  }
+  if (path.extname(filePath).toLowerCase() !== '.docx') {
+    throw pandocError('E_REFERENCE_DOC', 'Word 参考样式必须是 .docx 文件')
+  }
+  let stat: fs.Stats
+  try {
+    stat = fs.statSync(filePath)
+  } catch {
+    throw pandocError('E_REFERENCE_DOC', 'Word 参考样式文件不存在')
+  }
+  if (!stat.isFile() || stat.size > MAX_REFERENCE_DOC) {
+    throw pandocError('E_REFERENCE_DOC', 'Word 参考样式文件无效或过大')
+  }
+  return filePath
+}
+
+function runPandoc(command: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      command,
+      args,
+      { windowsHide: true, timeout: PANDOC_TIMEOUT_MS, maxBuffer: MAX_PANDOC_BUFFER },
+      (error, _stdout, stderr) => {
+        if (!error) {
+          resolve()
+          return
+        }
+        const code = (error as NodeJS.ErrnoException).code
+        if (code === 'ENOENT') {
+          reject(pandocError('E_PANDOC_NOT_FOUND', '未检测到 Pandoc'))
+          return
+        }
+        const detail = (stderr || error.message || 'Pandoc 导出失败').trim().slice(0, 2000)
+        reject(pandocError('E_PANDOC_FAILED', detail))
+      }
+    )
+  })
+}
+
+function pandocError(code: string, message: string): Error {
+  const error = new Error(message) as NodeJS.ErrnoException
+  error.code = code
+  return error
 }
 
 function createHiddenWindow(): BrowserWindow {

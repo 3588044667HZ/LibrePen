@@ -87,6 +87,7 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
   const decorations: Range<Decoration>[] = []
   const atomics: Range<Decoration>[] = []
   const covered: Array<{ from: number; to: number }> = []
+  const linkRanges: Array<{ from: number; to: number }> = []
   const lineClasses = new Map<number, Set<string>>()
   const excluded: Interval[] = []
   const opaque: Array<{ from: number; to: number }> = []
@@ -151,7 +152,46 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
       if (name === 'Document') return true
       if (overlapsRenderedBlock(node.from, node.to)) return false
       if (frontMatter && node.from < frontMatter.to && node.to > frontMatter.from) return false
-      if (name === 'URL' || name === 'Autolink' || name === 'LinkTitle') {
+      if (name === 'Autolink') {
+        let urlNode: { from: number; to: number } | null = null
+        let openMark: { from: number; to: number } | null = null
+        let closeMark: { from: number; to: number } | null = null
+        let child = node.node.firstChild
+        while (child) {
+          if (child.name === 'URL') urlNode = child
+          else if (child.name === 'LinkMark') {
+            if (!openMark) openMark = child
+            else closeMark = child
+          }
+          child = child.nextSibling
+        }
+        if (urlNode) {
+          addMark(urlNode.from, urlNode.to, 'cm-md-link')
+          linkRanges.push({ from: urlNode.from, to: urlNode.to })
+          if (!touches(node.from, node.to)) {
+            if (openMark) addHidden(openMark.from, openMark.to)
+            if (closeMark) addHidden(closeMark.from, closeMark.to)
+          }
+        }
+        return false
+      }
+      if (name === 'LinkReference') {
+        let child = node.node.firstChild
+        while (child) {
+          if (child.name === 'LinkLabel') addMark(child.from, child.to, 'cm-md-link-label')
+          else if (child.name === 'URL') {
+            addMark(child.from, child.to, 'cm-md-link')
+            linkRanges.push({ from: child.from, to: child.to })
+          }
+          child = child.nextSibling
+        }
+        return false
+      }
+      if (name === 'URL' || name === 'LinkTitle') {
+        if (name === 'URL') {
+          addMark(node.from, node.to, 'cm-md-link')
+          linkRanges.push({ from: node.from, to: node.to })
+        }
         opaque.push({ from: node.from, to: node.to })
         return false
       }
@@ -241,15 +281,31 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
       if (name === 'Link') {
         const raw = doc.sliceString(node.from, node.to)
         const parsed = parseLink(raw)
+        let textFrom = 0
+        let textTo = 0
         if (parsed) {
-          const textFrom = node.from + 1
-          const textTo = textFrom + parsed.text.length
-          if (textTo > textFrom && textTo <= node.to) {
-            addMark(textFrom, textTo, 'cm-md-link')
-            if (!touches(node.from, node.to) && withinLine(textTo, node.to)) {
-              addHidden(node.from, node.from + 1)
-              addHidden(textTo, node.to)
-            }
+          textFrom = node.from + 1
+          textTo = textFrom + parsed.text.length
+        } else {
+          const marks: Array<{ from: number; to: number }> = []
+          let child = node.node.firstChild
+          while (child) {
+            if (child.name === 'LinkMark') marks.push(child)
+            child = child.nextSibling
+          }
+          if (marks.length >= 2) {
+            textFrom = marks[0].to
+            textTo = marks[1].from
+          } else if (marks.length === 1) {
+            textFrom = marks[0].to
+            textTo = node.to - 1
+          }
+        }
+        if (textTo > textFrom && textTo <= node.to) {
+          addMark(textFrom, textTo, 'cm-md-link')
+          if (!touches(node.from, node.to) && withinLine(textTo, node.to)) {
+            addHidden(node.from, textFrom)
+            addHidden(textTo, node.to)
           }
         }
         return true
@@ -304,8 +360,11 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
   for (let n = startLine; n <= endLine; n++) {
     const line = doc.line(n)
     const text = line.text
-    if (!text) continue
     if (inRenderedBlock(line.from)) continue
+    if (text.trim().length === 0) {
+      addLineClass(line.from, 'cm-md-blank')
+      continue
+    }
     if (frontMatter && line.from >= frontMatter.from && line.from < frontMatter.to) continue
 
     const blocked = insideExcluded(line.from)
@@ -363,6 +422,16 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
         addHidden(from, contentFrom)
         addHidden(contentTo, to)
       }
+    }
+
+    const urlRegex = /https?:\/\/[^\s<>()]+/g
+    let urlMatch: RegExpExecArray | null
+    while ((urlMatch = urlRegex.exec(text)) !== null) {
+      const from = line.from + urlMatch.index
+      const to = from + urlMatch[0].replace(/[.,;:!?，。；：！？]+$/, '').length
+      if (to <= from || inOpaque(from, to)) continue
+      if (linkRanges.some((range) => from < range.to && to > range.from)) continue
+      addMark(from, to, 'cm-md-link')
     }
   }
 

@@ -132,6 +132,7 @@ export function buildApplicationMenu(ctx: AppContext): Menu {
           label: '导出',
           submenu: [
             { label: 'HTML…', accelerator: 'CmdOrCtrl+Shift+E', click: send('export-html') },
+            { label: 'Word (.docx)', click: send('export-docx') },
             { label: 'PDF…', click: send('export-pdf') },
             { label: '打印…', accelerator: 'CmdOrCtrl+Shift+P', click: send('print') }
           ]

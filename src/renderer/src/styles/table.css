@@ -237,6 +237,11 @@
   width: 100%;
   table-layout: auto;
 }
+.cm-table-render a {
+  color: var(--link, var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .cm-table-render th,
 .cm-table-render td {
   white-space: normal;

@@ -64,6 +64,9 @@ export const DEFAULT_SETTINGS: Settings = {
       marginMm: 20,
       printBackground: true
     },
+    docx: {
+      referenceDoc: ''
+    },
     general: {
       openAfterExport: true,
       defaultFolder: 'same'
@@ -128,6 +131,8 @@ export function normalizeSettings(input: unknown): Settings {
   const appearance = merged.appearance
   appearance.sidebarWidth = Math.round(clampNumber(appearance.sidebarWidth, 260, 240, 400))
   const exp = merged.export
+  exp.docx.referenceDoc =
+    typeof exp.docx.referenceDoc === 'string' ? exp.docx.referenceDoc.slice(0, 4096) : ''
   exp.pdf.marginMm = clampNumber(exp.pdf.marginMm, 20, 0, 60)
   return merged
 }

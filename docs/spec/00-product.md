@@ -47,7 +47,7 @@
 - 设置：字体、字号、自动保存、恢复、换行、扩展名等。
 - 自动保存与崩溃恢复草稿；关闭未保存确认。
 - 图片：相对路径渲染、粘贴/拖拽入库到 `assets`。
-- 导出 HTML、PDF、打印；可选 Pandoc 检测（不内置 Pandoc）。
+- 导出 HTML、PDF、Word（DOCX，外部 Pandoc）、打印；不内置 Pandoc。
 - 最近文件、会话恢复、单实例转发文件参数。
 - 菜单与 Typora 兼容的常用快捷键。
 
@@ -58,7 +58,7 @@
 - 数学块组件、Mermaid/流程图渲染缓存。
 - TOC 块、YAML front matter 面板、脚注悬浮预览。
 - 图片上传适配器（PicGo 等外部命令）、图片缩放。
-- 导出图片/Markdown 变体、Pandoc docx/epub/LaTeX。
+- 导出图片、Markdown 变体、Pandoc ODT/EPUB/LaTeX。
 - 快速打开（模糊搜索）、多标签、分屏、专注/打字机模式。
 - 主题目录兼容：读取用户 `themes` 文件夹、`base.user.css`、`{theme}.user.css`。
 

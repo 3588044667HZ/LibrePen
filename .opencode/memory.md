@@ -16,3 +16,44 @@
 - This is a deterministic baseline generated without reading source files.
 - Prefer project manifests and existing docs over guesses; update this file when commands or structure change.
 - Run the `/init` command for an AI-assisted, deeper AGENTS.md.
+
+## 备忘：导出格式与优先级
+
+记录日期：2026-11-15。当前已实现 HTML、Chromium PDF 和打印；以下格式进入后续待办，不等同于已实现。
+
+### 当前状态
+
+- HTML：自包含导出、主题变量、图片处理、DOMPurify 净化。
+- PDF：Chromium `printToPDF`，支持纸张、边距、打印背景；深色主题导出时使用浅色样式。
+- 打印：复用 PDF 导出管线。
+- Word：DOCX 已通过外部 Pandoc 导出；支持设置 `export.docx.referenceDoc` 参考样式（`--reference-doc`）；Pandoc 路径可配置。
+- 已知边界：尚无 ODT/RTF/EPUB/LaTeX 导出；尚无导出取消/进度、Pandoc 自动探测 UI 和 per-file 导出配置。
+
+### 待办格式
+
+- **DOCX / Word**：已实现；通过外部 Pandoc 导出，支持 `--reference-doc` 参考样式；保留标题、列表、表格、代码、公式、图片、脚注（需实测）。
+- **ODT**：Pandoc 导出；验证 LibreOffice 打开后的分页与表格。
+- **RTF**：Pandoc 导出；确认中文编码和字体回退。
+- **EPUB**：Pandoc 导出；封面、目录、图片、代码块和脚注。
+- **LaTeX / PDF（LaTeX 管线）**：Pandoc/LaTeX 可选；与 Chromium PDF 并存，用户可切换。
+- **Markdown 变体**：GFM、CommonMark、Pandoc Markdown；保留源文件编码、换行风格和末尾换行。
+- **HTML 变体**：自包含单文件、HTML 片段、复制为 HTML。
+- **图片导出**：整页长图 PNG；分段截图、拼接、上限保护。
+- **纯文本 / RST / MediaWiki / Textile / OPML / native**：低优先级，统一走 Pandoc。
+- **导入**：DOCX/EPUB/LaTeX 经 Pandoc；与导出共用检测和错误处理。
+
+### 实现约束
+
+- 不内置 Pandoc；导出时从 PATH 或设置路径调用，缺失时返回安装提示。
+- 统一导出请求：`{ format, targetPath, options }`；主进程生成临时文件并清理，不经过 shell 字符串拼接。
+- 导出前统一走 Markdown -> HTML/中间格式管线；图片、字体、Mermaid、KaTeX 失败时降级不阻塞。
+- Word/ODT/EPUB 需要外部进程时显示进度、支持取消，并禁用重复点击。
+- 导出失败回退：保留 HTML 文件并提示用户用浏览器打印或检查 Pandoc。
+- 测试：中文路径、空格路径、无网络、缺字体、超大文档、Pandoc 缺失、Pandoc 报错、临时文件清理。
+- 验收：`samples/style-compare.md` 可成功导出 HTML、PDF、DOCX；Word 中标题/列表/表格/代码/公式/图片可读，参考样式生效。ODT/EPUB/LaTeX 后续验收。
+
+### 未决问题
+
+- Word 是否只走 Pandoc，还是后续增加纯 JS `docx` 生成器作为无 Pandoc 回退。
+- PDF 默认继续用 Chromium，还是为 LaTeX 公式/分页提供 Pandoc 模式。
+- 导出格式菜单的默认排序和是否记忆上次选择。

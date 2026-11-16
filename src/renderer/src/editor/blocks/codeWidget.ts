@@ -88,7 +88,7 @@ function codeEditorTheme(dark: boolean) {
       '&': {
         backgroundColor: 'transparent',
         color: 'var(--fg)',
-        fontSize: '12.5px'
+        fontSize: 'var(--code-font-size, 12.5px)'
       },
       '.cm-scroller': {
         fontFamily: 'var(--mono)',
