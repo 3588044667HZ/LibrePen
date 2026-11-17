@@ -1,5 +1,6 @@
 import { Compartment, EditorState } from '@codemirror/state'
 import {
+  drawSelection,
   EditorView,
   WidgetType,
   keymap,
@@ -7,12 +8,12 @@ import {
 } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import {
+  HighlightStyle,
   LanguageDescription,
-  defaultHighlightStyle,
   syntaxHighlighting
 } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
-import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark'
+import { tags } from '@lezer/highlight'
 import hljs from 'highlight.js'
 import { editBlock } from './blockState'
 import { applyIconButton } from './iconButton'
@@ -93,10 +94,9 @@ function codeEditorTheme(dark: boolean) {
       '.cm-scroller': {
         fontFamily: 'var(--mono)',
         lineHeight: '1.6',
-        maxHeight: '60vh',
-        overflow: 'auto'
+        overflow: 'visible'
       },
-      '.cm-content': { padding: '8px 12px', caretColor: 'var(--accent)' },
+      '.cm-content': { padding: '10px 14px', caretColor: 'var(--accent)' },
       '.cm-line': { padding: '0' },
       '.cm-gutters': {
         backgroundColor: 'transparent',
@@ -111,6 +111,64 @@ function codeEditorTheme(dark: boolean) {
     { dark }
   )
 }
+
+const codeHighlightStyle = HighlightStyle.define([
+  {
+    tag: [
+      tags.keyword,
+      tags.controlKeyword,
+      tags.definitionKeyword,
+      tags.moduleKeyword,
+      tags.operatorKeyword
+    ],
+    color: 'var(--hljs-keyword)'
+  },
+  {
+    tag: [
+      tags.operator,
+      tags.number,
+      tags.bool,
+      tags.null,
+      tags.atom,
+      tags.literal,
+      tags.unit,
+      tags.attributeName,
+      tags.propertyName,
+      tags.meta
+    ],
+    color: 'var(--hljs-constant)'
+  },
+  {
+    tag: [tags.string, tags.regexp, tags.special(tags.string)],
+    color: 'var(--hljs-string)'
+  },
+  {
+    tag: [tags.comment, tags.blockComment, tags.lineComment],
+    color: 'var(--hljs-comment)'
+  },
+  {
+    tag: [tags.function(tags.variableName), tags.className, tags.typeName, tags.definition(tags.typeName)],
+    color: 'var(--hljs-entity)'
+  },
+  { tag: [tags.tagName], color: 'var(--hljs-tag)' },
+  {
+    tag: [tags.standard(tags.variableName), tags.standard(tags.propertyName)],
+    color: 'var(--hljs-variable)'
+  },
+  { tag: [tags.emphasis], fontStyle: 'italic' },
+  { tag: [tags.strong], fontWeight: '700' },
+  {
+    tag: [tags.inserted],
+    color: 'var(--hljs-addition-fg)',
+    backgroundColor: 'var(--hljs-addition-bg)'
+  },
+  {
+    tag: [tags.deleted],
+    color: 'var(--hljs-deletion-fg)',
+    backgroundColor: 'var(--hljs-deletion-bg)'
+  },
+  { tag: [tags.invalid], color: 'var(--danger)' }
+])
 
 class CodeBlockWidget extends WidgetType {
   private readonly languageSlot = new Compartment()
@@ -181,19 +239,21 @@ class CodeBlockWidget extends WidgetType {
     const editButton = document.createElement('button')
     editButton.type = 'button'
     editButton.className = 'cm-block-action cm-code-edit'
-    applyIconButton(editButton, 'bi-code-slash', '编辑源码')
+    applyIconButton(editButton, 'bi-code-slash', '编辑代码（Alt 点击编辑源码）')
     editButton.addEventListener('click', (event) => {
       event.preventDefault()
       event.stopPropagation()
-      if (!this.editorPanel) this.edit(view)
+      if (this.editorPanel) return
+      if (event.altKey) this.edit(view)
+      else this.startInlineEdit(view)
     })
 
     toolbar.append(copied, copyButton, editButton)
 
     const body = document.createElement('div')
     body.className = 'cm-code-body'
-    body.addEventListener('click', () => {
-      if (!this.editorPanel) this.startInlineEdit(view)
+    body.addEventListener('click', (event) => {
+      if (!this.editorPanel) this.startInlineEdit(view, { x: event.clientX, y: event.clientY })
     })
 
     const lineCount = Math.max(1, this.parts.code.split('\n').length)
@@ -237,39 +297,15 @@ class CodeBlockWidget extends WidgetType {
     editBlock(view, this.descriptor, this.descriptor.from + this.parts.openingLength + 1)
   }
 
-  private startInlineEdit(view: EditorView): void {
+  private startInlineEdit(view: EditorView, point?: { x: number; y: number }): void {
     if (this.editorPanel || !this.body) return
     this.body.style.display = 'none'
 
     const panel = document.createElement('div')
     panel.className = 'cm-code-editor'
-    const actions = document.createElement('div')
-    actions.className = 'cm-code-editor-actions'
-    const done = document.createElement('button')
-    done.type = 'button'
-    done.className = 'cm-block-action'
-    applyIconButton(done, 'bi-check-lg', '完成')
-    done.addEventListener('mousedown', (event) => event.preventDefault())
-    done.addEventListener('click', (event) => {
-      event.preventDefault()
-      event.stopPropagation()
-      this.finishInlineEdit(view, true)
-    })
-    const cancel = document.createElement('button')
-    cancel.type = 'button'
-    cancel.className = 'cm-block-action'
-    applyIconButton(cancel, 'bi-x-lg', '取消')
-    cancel.addEventListener('mousedown', (event) => event.preventDefault())
-    cancel.addEventListener('click', (event) => {
-      event.preventDefault()
-      event.stopPropagation()
-      this.finishInlineEdit(view, false)
-    })
-    actions.append(done, cancel)
-
     const host = document.createElement('div')
     host.className = 'cm-code-editor-host'
-    panel.append(actions, host)
+    panel.append(host)
     this.root?.appendChild(panel)
     this.editorPanel = panel
 
@@ -279,12 +315,10 @@ class CodeBlockWidget extends WidgetType {
         doc: this.parts.code,
         extensions: [
           history(),
+          drawSelection(),
           lineNumbers(),
-          EditorView.lineWrapping,
-          syntaxHighlighting(
-            this.theme === 'dark' ? oneDarkHighlightStyle : defaultHighlightStyle,
-            { fallback: true }
-          ),
+          EditorState.tabSize.of(2),
+          syntaxHighlighting(codeHighlightStyle, { fallback: true }),
           codeEditorTheme(this.theme === 'dark'),
           this.languageSlot.of([]),
           keymap.of([
@@ -315,6 +349,14 @@ class CodeBlockWidget extends WidgetType {
     this.nested = nested
     void this.loadLanguage(nested, view)
     nested.focus()
+    if (point) {
+      window.requestAnimationFrame(() => {
+        if (this.nested !== nested) return
+        const pos = nested.posAtCoords(point)
+        if (pos !== null) nested.dispatch({ selection: { anchor: pos } })
+        nested.focus()
+      })
+    }
     this.outsideHandler = (event) => {
       if (!(event.target instanceof Node)) return
       if (this.root?.contains(event.target)) return

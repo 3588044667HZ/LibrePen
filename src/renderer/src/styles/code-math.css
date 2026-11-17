@@ -408,29 +408,38 @@ html[data-theme='dark'] .cm-code-block {
 }
 
 .cm-code-editor {
-  border-top: 1px solid var(--border);
-  background: var(--code-bg);
-}
-.cm-code-editor-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 2px;
-  padding: 2px 6px;
+  background: transparent;
 }
 .cm-code-editor-host .cm-editor {
   height: auto;
-  max-height: 60vh;
   background: transparent;
 }
 .cm-code-editor-host .cm-scroller {
-  max-height: 60vh;
   overflow: auto;
 }
 .cm-code-editor-host .cm-content {
-  padding: 8px 12px;
+  max-width: none;
+  margin: 0;
+  padding: 10px 14px;
+  font-family: var(--mono);
+  tab-size: 2;
+}
+.cm-code-editor-host .cm-line {
+  padding: 0;
+  font-family: var(--mono);
+  tab-size: 2;
 }
 .cm-code-editor-host .cm-gutters {
+  padding: 10px 8px 10px 10px;
+  border-right: 1px solid var(--border);
   background: transparent;
   color: var(--fg-muted);
-  border: none;
+  font-family: var(--mono);
+  font-size: var(--code-font-size, 12.5px);
+  line-height: 1.6;
+  opacity: 0.7;
+}
+.cm-code-editor-host .cm-lineNumbers .cm-gutterElement {
+  padding: 0;
+  min-width: 0;
 }
