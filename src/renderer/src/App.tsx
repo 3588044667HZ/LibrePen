@@ -23,7 +23,7 @@ import {
   type OutlineItem
 } from '@shared/markdown'
 import { Editor, type EditorHandle } from './editor/Editor'
-import { renderExportHtml } from './editor/exportHtml'
+import { renderExportHtml, renderPandocMarkdown } from './editor/exportHtml'
 import { TitleBar } from './components/TitleBar'
 import { Sidebar, type SidebarTab } from './components/Sidebar'
 import { SettingsDialog } from './components/SettingsDialog'
@@ -624,6 +624,7 @@ export default function App() {
     const content = editorRef.current?.getContent() ?? contentRef.current
     const base = current.displayName.replace(/\.[^.]+$/, '')
     const suggested = joinPath(dirName(current.path), base + '.' + format)
+    const markdown = await renderPandocMarkdown(content, { theme: 'light' })
     const labels: Record<PandocExportFormat, string> = {
       docx: 'Word',
       odt: 'ODT',
@@ -632,7 +633,7 @@ export default function App() {
     }
     const result = await window.api.export.document({
       format,
-      markdown: content,
+      markdown,
       docPath: current.path,
       suggestedName: suggested,
       title: base,

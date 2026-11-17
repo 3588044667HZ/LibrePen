@@ -15,7 +15,6 @@ interface MermaidParts {
 const cache = new Map<string, Promise<string>>()
 let counter = 0
 let mermaidApi: Promise<MermaidApi> | null = null
-let mermaidConfigKey: string | null = null
 
 async function loadMermaid(theme: MermaidTheme): Promise<MermaidApi> {
   if (!mermaidApi) {
@@ -25,26 +24,22 @@ async function loadMermaid(theme: MermaidTheme): Promise<MermaidApi> {
   const fontSize =
     getComputedStyle(document.documentElement).getPropertyValue('--mermaid-font-size').trim() ||
     '16px'
-  const configKey = theme + ':' + fontSize
-  if (mermaidConfigKey !== configKey) {
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: 'strict',
-      theme: theme === 'dark' ? 'dark' : 'default',
-      fontFamily: 'inherit',
-      themeVariables: { fontSize },
-      flowchart: { useMaxWidth: false },
-      sequence: { useMaxWidth: false },
-      gantt: { useMaxWidth: false },
-      journey: { useMaxWidth: false },
-      class: { useMaxWidth: false },
-      state: { useMaxWidth: false },
-      er: { useMaxWidth: false },
-      pie: { useMaxWidth: false },
-      mindmap: { useMaxWidth: false }
-    })
-    mermaidConfigKey = configKey
-  }
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: 'strict',
+    theme: theme === 'dark' ? 'dark' : 'default',
+    fontFamily: 'inherit',
+    themeVariables: { fontSize },
+    flowchart: { useMaxWidth: false },
+    sequence: { useMaxWidth: false },
+    gantt: { useMaxWidth: false },
+    journey: { useMaxWidth: false },
+    class: { useMaxWidth: false },
+    state: { useMaxWidth: false },
+    er: { useMaxWidth: false },
+    pie: { useMaxWidth: false },
+    mindmap: { useMaxWidth: false }
+  })
   return mermaid
 }
 

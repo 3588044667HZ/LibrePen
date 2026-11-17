@@ -16,6 +16,7 @@ import type { Settings } from '@shared/types'
 import lightCodeCss from 'highlight.js/styles/github.css?inline'
 import darkCodeCss from 'highlight.js/styles/github-dark.css?inline'
 import exportCss from '../styles/export.css?inline'
+import { preparePandocMarkdown } from './pandocMarkdown'
 
 export interface ExportRenderOptions {
   docPath: string | null
@@ -26,8 +27,8 @@ export interface ExportRenderOptions {
 }
 
 const cache = new Map<string, MarkdownIt>()
+const TOC_PLACEHOLDER = '<!--LIBREPEN_EXPORT_TOC-->'
 let mermaidCounter = 0
-let mermaidExportTheme: 'light' | 'dark' | null = null
 
 function createRenderer(docPath: string | null): MarkdownIt {
   const key = docPath ?? ''
@@ -116,11 +117,12 @@ export async function renderExportHtml(
   markdown: string,
   options: ExportRenderOptions
 ): Promise<string> {
+  const prepared = prepareTocMarker(markdown)
   const md = createRenderer(options.docPath)
   const env = { mermaid: new Map<string, string>() }
-  const rawBody = md.render(markdown, env)
-  const bodyWithMermaid = await replaceMermaidBlocks(rawBody, env.mermaid, options.theme)
-  const outline = options.includeToc ? extractOutline(markdown) : []
+  const rawBody = md.render(prepared.markdown, env)
+  const outline =
+    prepared.hasMarker || options.includeToc ? extractOutline(prepared.markdown) : []
   const toc = outline.length
     ? `<nav class="export-toc"><h2>目录</h2><ul>${outline
         .map(
@@ -129,7 +131,13 @@ export async function renderExportHtml(
         )
         .join('')}</ul></nav>`
     : ''
-  const sanitized = DOMPurify.sanitize(`${toc}${bodyWithMermaid}`, {
+  const body = prepared.hasMarker
+    ? rawBody.replace(TOC_PLACEHOLDER, toc)
+    : options.includeToc
+      ? toc + rawBody
+      : rawBody
+  const bodyWithMermaid = await replaceMermaidBlocks(body, env.mermaid, options.theme)
+  const sanitized = DOMPurify.sanitize(bodyWithMermaid, {
     USE_PROFILES: { html: true, svg: true, mathMl: true },
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|file|mdimg|data|blob):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
     ADD_ATTR: [
@@ -173,6 +181,88 @@ ${sanitized}
 </html>`
 }
 
+export async function renderPandocMarkdown(
+  markdown: string,
+  options: { theme: 'light' | 'dark'; includeToc?: boolean }
+): Promise<string> {
+  return preparePandocMarkdown(markdown, {
+    includeToc: options.includeToc,
+    renderMermaid: async (code) => {
+      const svg = await renderMermaidSvg(code, options.theme)
+      if (!svg) return null
+      try {
+        return await svgToPngDataUrl(svg, options.theme)
+      } catch {
+        return null
+      }
+    }
+  })
+}
+
+function svgToPngDataUrl(svg: string, theme: 'light' | 'dark'): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const size = svgSize(svg)
+    const maxSide = 2048
+    const scale = Math.min(2, maxSide / Math.max(size.width, size.height))
+    const width = Math.max(1, Math.round(size.width * scale))
+    const height = Math.max(1, Math.round(size.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) {
+      reject(new Error('canvas unavailable'))
+      return
+    }
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const image = new Image()
+    image.onload = () => {
+      try {
+        context.fillStyle = theme === 'dark' ? '#1e1e1e' : '#ffffff'
+        context.fillRect(0, 0, width, height)
+        context.drawImage(image, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/png'))
+      } catch (error) {
+        reject(error)
+      } finally {
+        URL.revokeObjectURL(url)
+      }
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('svg image failed to load'))
+    }
+    image.src = url
+  })
+}
+
+function svgSize(svg: string): { width: number; height: number } {
+  const viewBox = /viewBox\s*=\s*["']([^"']+)["']/i.exec(svg)
+  const parts = viewBox ? viewBox[1].trim().split(/[\s,]+/).map(Number) : []
+  let width = parts[2]
+  let height = parts[3]
+  if (!Number.isFinite(width) || width <= 0) {
+    const match = /\bwidth\s*=\s*["']([\d.]+)(?:px)?["']/i.exec(svg)
+    width = match ? Number(match[1]) : 800
+  }
+  if (!Number.isFinite(height) || height <= 0) {
+    const match = /\bheight\s*=\s*["']([\d.]+)(?:px)?["']/i.exec(svg)
+    height = match ? Number(match[1]) : 600
+  }
+  return { width, height }
+}
+
+function prepareTocMarker(markdown: string): { markdown: string; hasMarker: boolean } {
+  let hasMarker = false
+  const next = markdown.replace(/^[ \t]*\[toc\][ \t]*$/gim, () => {
+    if (hasMarker) return ''
+    hasMarker = true
+    return TOC_PLACEHOLDER
+  })
+  return { markdown: next, hasMarker }
+}
+
 async function replaceMermaidBlocks(
   html: string,
   blocks: Map<string, string>,
@@ -190,18 +280,15 @@ async function replaceMermaidBlocks(
 }
 
 async function renderMermaidSvg(code: string, theme: 'light' | 'dark'): Promise<string> {
-  if (mermaidExportTheme !== theme) {
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: 'strict',
-      theme: theme === 'dark' ? 'dark' : 'default',
-      fontFamily: 'inherit',
-      themeVariables: { fontSize: '16px' },
-      flowchart: { htmlLabels: false },
-      sequence: { useMaxWidth: false }
-    })
-    mermaidExportTheme = theme
-  }
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: 'strict',
+    theme: theme === 'dark' ? 'dark' : 'default',
+    fontFamily: 'inherit',
+    htmlLabels: false,
+    themeVariables: { fontSize: '16px' },
+    sequence: { useMaxWidth: false }
+  })
   try {
     const result = await mermaid.render('export-mermaid-' + mermaidCounter++, code)
     return result.svg
