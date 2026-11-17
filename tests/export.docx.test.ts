@@ -114,3 +114,21 @@ describe('ExportService.exportDocument', () => {
     expect(mocks.execFile).not.toHaveBeenCalled()
   })
 })
+
+describe('ExportService.exportHtml', () => {
+  it('inlines local mdimg images', async () => {
+    const target = path.join(dir, 'out.html')
+    const image = path.join(dir, 'demo.png')
+    fs.writeFileSync(image, Buffer.from('png-data'))
+    mocks.showSaveDialog.mockResolvedValue({ canceled: false, filePath: target })
+    const url = 'mdimg://local/' + encodeURIComponent(image)
+
+    const saved = await new ExportService().exportHtml(null, {
+      html: '<img src="' + url + '">',
+      suggestedName: target
+    })
+
+    expect(saved).toBe(target)
+    expect(fs.readFileSync(target, 'utf8')).toContain('data:image/png;base64,')
+  })
+})

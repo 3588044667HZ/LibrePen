@@ -583,12 +583,17 @@ export default function App() {
     editorRef.current?.insertImage(alt, encodeMarkdownUrl(rel))
   }
 
-  function exportPayload(): { html: string; base: string; current: DocPayload; content: string } | null {
+  async function exportPayload(): Promise<{
+    html: string
+    base: string
+    current: DocPayload
+    content: string
+  } | null> {
     const current = docRef.current
     if (!current) return null
     const content = editorRef.current?.getContent() ?? contentRef.current
     const base = current.displayName.replace(/\.[^.]+$/, '')
-    const html = renderExportHtml(content, {
+    const html = await renderExportHtml(content, {
       docPath: current.path,
       title: base,
       theme: resolvedTheme,
@@ -599,7 +604,7 @@ export default function App() {
   }
 
   async function exportHtml(): Promise<void> {
-    const payload = exportPayload()
+    const payload = await exportPayload()
     if (!payload) return
     const suggested = joinPath(dirName(payload.current.path), `${payload.base}.html`)
     const result = await window.api.export.html({ html: payload.html, suggestedName: suggested })
@@ -645,7 +650,7 @@ export default function App() {
   }
 
   async function exportPdf(): Promise<void> {
-    const payload = exportPayload()
+    const payload = await exportPayload()
     if (!payload) return
     const suggested = joinPath(dirName(payload.current.path), `${payload.base}.pdf`)
     const result = await window.api.export.pdf({
@@ -666,7 +671,7 @@ export default function App() {
   }
 
   async function printDocument(): Promise<void> {
-    const payload = exportPayload()
+    const payload = await exportPayload()
     if (!payload) return
     const result = await window.api.export.print(payload.html)
     if (!result.ok) showToast(result.error ?? '打印失败', true)

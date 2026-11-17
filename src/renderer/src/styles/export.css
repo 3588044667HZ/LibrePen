@@ -279,3 +279,14 @@ mark {
     page-break-after: avoid;
   }
 }
+
+.export-mermaid {
+  margin: 1em 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.export-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}

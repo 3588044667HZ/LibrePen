@@ -9,6 +9,7 @@ import sup from 'markdown-it-sup'
 import anchor from 'markdown-it-anchor'
 import hljs from 'highlight.js'
 import katex from 'katex'
+import mermaid from 'mermaid'
 import DOMPurify from 'dompurify'
 import { extractOutline, resolveImageUrl, slugify } from '@shared/markdown'
 import type { Settings } from '@shared/types'
@@ -25,6 +26,8 @@ export interface ExportRenderOptions {
 }
 
 const cache = new Map<string, MarkdownIt>()
+let mermaidCounter = 0
+let mermaidExportTheme: 'light' | 'dark' | null = null
 
 function createRenderer(docPath: string | null): MarkdownIt {
   const key = docPath ?? ''
@@ -59,12 +62,20 @@ function createRenderer(docPath: string | null): MarkdownIt {
   md.renderer.rules.math_block = (tokens: Token[], idx: number): string =>
     renderMath(tokens[idx].content, true)
 
-  md.renderer.rules.fence = (tokens: Token[], idx: number): string => {
+  md.renderer.rules.fence = (
+    tokens: Token[],
+    idx: number,
+    _options,
+    env
+  ): string => {
     const token = tokens[idx]
     const info = (token.info || '').trim().split(/\s+/)[0].toLowerCase()
     if (info === 'math') return renderMath(token.content, true)
     if (info === 'mermaid') {
-      return `<pre class="mermaid-source">${md.utils.escapeHtml(token.content)}</pre>`
+      const envMap = (env as { mermaid?: Map<string, string> }).mermaid
+      const id = 'export-mermaid-' + mermaidCounter++
+      envMap?.set(id, token.content)
+      return `<div data-mermaid-id="${id}"></div>`
     }
     let highlighted = md.utils.escapeHtml(token.content)
     if (info && hljs.getLanguage(info)) {
@@ -101,9 +112,14 @@ function createRenderer(docPath: string | null): MarkdownIt {
   return md
 }
 
-export function renderExportHtml(markdown: string, options: ExportRenderOptions): string {
+export async function renderExportHtml(
+  markdown: string,
+  options: ExportRenderOptions
+): Promise<string> {
   const md = createRenderer(options.docPath)
-  const rawBody = md.render(markdown)
+  const env = { mermaid: new Map<string, string>() }
+  const rawBody = md.render(markdown, env)
+  const bodyWithMermaid = await replaceMermaidBlocks(rawBody, env.mermaid, options.theme)
   const outline = options.includeToc ? extractOutline(markdown) : []
   const toc = outline.length
     ? `<nav class="export-toc"><h2>目录</h2><ul>${outline
@@ -113,8 +129,9 @@ export function renderExportHtml(markdown: string, options: ExportRenderOptions)
         )
         .join('')}</ul></nav>`
     : ''
-  const sanitized = DOMPurify.sanitize(`${toc}${rawBody}`, {
+  const sanitized = DOMPurify.sanitize(`${toc}${bodyWithMermaid}`, {
     USE_PROFILES: { html: true, svg: true, mathMl: true },
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|file|mdimg|data|blob):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
     ADD_ATTR: [
       'target',
       'rel',
@@ -154,6 +171,43 @@ ${sanitized}
 </article>
 </body>
 </html>`
+}
+
+async function replaceMermaidBlocks(
+  html: string,
+  blocks: Map<string, string>,
+  theme: 'light' | 'dark'
+): Promise<string> {
+  let result = html
+  for (const [id, code] of blocks) {
+    const svg = await renderMermaidSvg(code, theme)
+    const replacement = svg
+      ? `<div class="export-mermaid">${svg}</div>`
+      : `<pre class="mermaid-source">${escapeHtml(code)}</pre>`
+    result = result.replace(`<div data-mermaid-id="${id}"></div>`, replacement)
+  }
+  return result
+}
+
+async function renderMermaidSvg(code: string, theme: 'light' | 'dark'): Promise<string> {
+  if (mermaidExportTheme !== theme) {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: theme === 'dark' ? 'dark' : 'default',
+      fontFamily: 'inherit',
+      themeVariables: { fontSize: '16px' },
+      flowchart: { htmlLabels: false },
+      sequence: { useMaxWidth: false }
+    })
+    mermaidExportTheme = theme
+  }
+  try {
+    const result = await mermaid.render('export-mermaid-' + mermaidCounter++, code)
+    return result.svg
+  } catch {
+    return ''
+  }
 }
 
 function renderMath(tex: string, display: boolean): string {
