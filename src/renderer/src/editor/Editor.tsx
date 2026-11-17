@@ -2,8 +2,10 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useRef,
-  useState
+  useState,
+  type MouseEvent as ReactMouseEvent
 } from 'react'
 import { Compartment, EditorState } from '@codemirror/state'
 import {
@@ -40,6 +42,7 @@ import {
   type BlockPrefix
 } from '@shared/markdown'
 import { livePreview } from './livePreview'
+import { sourceSyntax } from './sourceSyntax'
 import { editorTheme } from './theme'
 import { findBlockAt, setBlockEdit } from './blocks/blockState'
 import { focusModeExtension, typewriterModeExtension } from './effects'
@@ -56,6 +59,54 @@ export interface EditorHandle {
   scrollToLine(line: number): void
 }
 
+interface ContextMenuItem {
+  label: string
+  command?: string
+  args?: unknown
+  shortcut?: string
+  icon?: string
+  separator?: boolean
+  children?: ContextMenuItem[]
+}
+
+const CONTEXT_MENU_ITEMS: ContextMenuItem[] = [
+  { label: '标题', icon: 'bi-type', children: [
+    { label: '一级标题', command: 'heading', args: { level: 1 }, shortcut: 'Ctrl+1', icon: 'bi-type-h1' },
+    { label: '二级标题', command: 'heading', args: { level: 2 }, shortcut: 'Ctrl+2', icon: 'bi-type-h2' },
+    { label: '三级标题', command: 'heading', args: { level: 3 }, shortcut: 'Ctrl+3', icon: 'bi-type-h3' },
+    { label: '四级标题', command: 'heading', args: { level: 4 }, shortcut: 'Ctrl+4', icon: 'bi-type-h4' },
+    { label: '五级标题', command: 'heading', args: { level: 5 }, shortcut: 'Ctrl+5', icon: 'bi-type-h5' },
+    { label: '六级标题', command: 'heading', args: { level: 6 }, shortcut: 'Ctrl+6', icon: 'bi-type-h6' },
+    { label: '正文', command: 'heading', args: { level: 0 }, shortcut: 'Ctrl+0', icon: 'bi-paragraph' }
+  ] },
+  { label: '格式', icon: 'bi-fonts', children: [
+    { label: '加粗', command: 'bold', shortcut: 'Ctrl+B', icon: 'bi-type-bold' },
+    { label: '斜体', command: 'italic', shortcut: 'Ctrl+I', icon: 'bi-type-italic' },
+    { label: '删除线', command: 'strike', icon: 'bi-type-strikethrough' },
+    { label: '高亮', command: 'highlight', icon: 'bi-highlighter' },
+    { label: '行内代码', command: 'inline-code', icon: 'bi-code' },
+    { label: '下划线', command: 'underline', shortcut: 'Ctrl+U', icon: 'bi-type-underline' }
+  ] },
+  { label: '段落', icon: 'bi-paragraph', children: [
+    { label: '引用', command: 'quote', icon: 'bi-quote' },
+    { label: '无序列表', command: 'bullet', icon: 'bi-list-ul' },
+    { label: '有序列表', command: 'ordered', icon: 'bi-list-ol' },
+    { label: '任务列表', command: 'task', icon: 'bi-check2-square' }
+  ] },
+  { label: '插入', icon: 'bi-plus-square', children: [
+    { label: '代码块', command: 'code-fence', shortcut: 'Ctrl+Shift+K', icon: 'bi-code-square' },
+    { label: '公式块', command: 'math-block', shortcut: 'Ctrl+Shift+M', icon: 'bi-superscript' },
+    { label: '表格', command: 'table', shortcut: 'Ctrl+T', icon: 'bi-table' },
+    { label: '水平线', command: 'hr', shortcut: 'Ctrl+Shift+R', icon: 'bi-hr' },
+    { label: '目录', command: 'toc', icon: 'bi-list-nested' }
+  ] },
+  { separator: true, label: '' },
+  { label: '粘贴为纯文本', command: 'paste-plain', shortcut: 'Ctrl+Shift+V', icon: 'bi-clipboard' },
+  { label: '清除格式', command: 'clear-format', icon: 'bi-eraser' },
+  { label: '撤销', command: 'undo', shortcut: 'Ctrl+Z', icon: 'bi-arrow-counterclockwise' },
+  { label: '重做', command: 'redo', shortcut: 'Ctrl+Y', icon: 'bi-arrow-clockwise' }
+]
+
 interface EditorProps {
   initialContent: string
   docPath: string | null
@@ -70,6 +121,14 @@ interface EditorProps {
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(props, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const contextMenuRef = useRef<HTMLDivElement | null>(null)
+  const submenuRef = useRef<HTMLDivElement | null>(null)
+  const [submenu, setSubmenu] = useState<{
+    key: string
+    items: ContextMenuItem[]
+    x: number
+    y: number
+  } | null>(null)
   const viewRef = useRef<EditorView | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const propsRef = useRef(props)
@@ -86,6 +145,31 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
     typewriter: new Compartment(),
     spellcheck: new Compartment()
   }).current
+
+  useLayoutEffect(() => {
+    const menu = contextMenuRef.current
+    if (!contextMenu || !menu) return
+    const margin = 8
+    const rect = menu.getBoundingClientRect()
+    const x = Math.max(margin, Math.min(contextMenu.x, window.innerWidth - rect.width - margin))
+    const y = Math.max(margin, Math.min(contextMenu.y, window.innerHeight - rect.height - margin))
+    if (x !== contextMenu.x || y !== contextMenu.y) setContextMenu({ x, y })
+  }, [contextMenu])
+
+  useLayoutEffect(() => {
+    const menu = submenuRef.current
+    if (!submenu || !menu) return
+    const margin = 8
+    const rect = menu.getBoundingClientRect()
+    const parent = contextMenuRef.current?.getBoundingClientRect()
+    let x = submenu.x
+    if (parent && x + rect.width > window.innerWidth - margin) {
+      x = parent.left - rect.width - 4
+    }
+    x = Math.max(margin, Math.min(x, window.innerWidth - rect.width - margin))
+    const y = Math.max(margin, Math.min(submenu.y, window.innerHeight - rect.height - margin))
+    if (x !== submenu.x || y !== submenu.y) setSubmenu({ ...submenu, x, y })
+  }, [submenu])
 
   useImperativeHandle(
     ref,
@@ -180,16 +264,18 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
           compartments.tabSize.of(EditorState.tabSize.of(settings.editor.tabSize)),
           compartments.wrap.of(settings.editor.lineWrapping ? EditorView.lineWrapping : []),
           compartments.numbers.of(settings.editor.showLineNumbers ? lineNumbers() : []),
-          compartments.theme.of(editorTheme(settings, dark)),
+          compartments.theme.of(editorTheme(settings, dark, propsRef.current.sourceMode)),
           compartments.live.of(
-            settings.editor.livePreview && !propsRef.current.sourceMode
-              ? livePreview({
-                  docPath: propsRef.current.docPath,
-                  inlineMath: settings.editor.inlineMath,
-                  theme: propsRef.current.theme,
-                  resolveImage: window.api.files.resolveImage
-                })
-              : []
+            propsRef.current.sourceMode
+              ? sourceSyntax()
+              : settings.editor.livePreview
+                ? livePreview({
+                    docPath: propsRef.current.docPath,
+                    inlineMath: settings.editor.inlineMath,
+                    theme: propsRef.current.theme,
+                    resolveImage: window.api.files.resolveImage
+                  })
+                : []
           ),
           compartments.autoPair.of(settings.editor.autoPair ? closeBrackets() : []),
           compartments.focus.of(settings.editor.focusMode ? focusModeExtension() : []),
@@ -255,16 +341,18 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
         compartments.wrap.reconfigure(settings.editor.lineWrapping ? EditorView.lineWrapping : []),
         compartments.numbers.reconfigure(settings.editor.showLineNumbers ? lineNumbers() : []),
         compartments.tabSize.reconfigure(EditorState.tabSize.of(settings.editor.tabSize)),
-        compartments.theme.reconfigure(editorTheme(settings, props.theme === 'dark')),
+        compartments.theme.reconfigure(editorTheme(settings, props.theme === 'dark', props.sourceMode)),
         compartments.live.reconfigure(
-          settings.editor.livePreview && !props.sourceMode
-            ? livePreview({
-                docPath: props.docPath,
-                inlineMath: settings.editor.inlineMath,
-                theme: props.theme,
-                resolveImage: window.api.files.resolveImage
-              })
-            : []
+          props.sourceMode
+            ? sourceSyntax()
+            : settings.editor.livePreview
+              ? livePreview({
+                  docPath: props.docPath,
+                  inlineMath: settings.editor.inlineMath,
+                  theme: props.theme,
+                  resolveImage: window.api.files.resolveImage
+                })
+              : []
         ),
         compartments.autoPair.reconfigure(settings.editor.autoPair ? closeBrackets() : []),
         compartments.focus.reconfigure(settings.editor.focusMode ? focusModeExtension() : []),
@@ -332,11 +420,55 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
     }
   }
 
-  const runContext = (id: string): void => {
+  const closeContextMenu = (): void => {
+    setSubmenu(null)
     setContextMenu(null)
-    const view = viewRef.current
-    if (view) runCommand(view, id)
   }
+
+  const runContext = (id: string, args?: unknown): void => {
+    closeContextMenu()
+    const view = viewRef.current
+    if (view) runCommand(view, id, args)
+  }
+
+  const showSubmenu = (
+    event: ReactMouseEvent<HTMLButtonElement>,
+    key: string,
+    items: ContextMenuItem[]
+  ): void => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    setSubmenu({ key, items, x: rect.right + 2, y: rect.top })
+  }
+
+  const renderContextItems = (items: ContextMenuItem[], prefix: string) =>
+    items.map((item, index) => {
+      if (item.separator) {
+        return <div className="editor-context-sep" key={prefix + '-sep-' + index} />
+      }
+      const hasChildren = Boolean(item.children?.length)
+      return (
+        <button
+          key={prefix + ':' + item.command + ':' + item.label}
+          type="button"
+          onMouseEnter={(event) => {
+            if (hasChildren) showSubmenu(event, prefix + ':' + item.label, item.children!)
+            else setSubmenu(null)
+          }}
+          onClick={(event) => {
+            if (hasChildren) showSubmenu(event, prefix + ':' + item.label, item.children!)
+            else runContext(item.command!, item.args)
+          }}
+        >
+          <i className={'bi ' + item.icon} aria-hidden="true" />
+          <span>{item.label}</span>
+          {hasChildren ? (
+            <i className="bi bi-chevron-right editor-context-chevron" aria-hidden="true" />
+          ) : item.shortcut ? (
+            <span className="editor-context-shortcut">{item.shortcut}</span>
+          ) : null}
+        </button>
+      )
+    })
 
   return (
     <>
@@ -347,40 +479,32 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
       {contextMenu ? (
         <div
           className="editor-context-backdrop"
-          onMouseDown={() => setContextMenu(null)}
-          onPointerDown={() => setContextMenu(null)}
-          onClick={() => setContextMenu(null)}
+          onMouseDown={closeContextMenu}
+          onPointerDown={closeContextMenu}
+          onClick={closeContextMenu}
         >
           <div
+            ref={contextMenuRef}
             className="editor-context-menu"
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onMouseDown={(event) => event.stopPropagation()}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
           >
-            {[
-              ['bold', '加粗'],
-              ['italic', '斜体'],
-              ['strike', '删除线'],
-              ['inline-code', '行内代码'],
-              ['highlight', '高亮'],
-              ['quote', '引用'],
-              ['bullet', '无序列表'],
-              ['ordered', '有序列表'],
-              ['task', '任务列表'],
-              ['code-fence', '代码块'],
-              ['math-block', '公式块'],
-              ['table', '表格'],
-              ['hr', '水平线'],
-              ['clear-format', '清除格式'],
-              ['undo', '撤销'],
-              ['redo', '重做']
-            ].map(([id, label]) => (
-              <button key={id} type="button" onClick={() => runContext(id)}>
-                {label}
-              </button>
-            ))}
+            {renderContextItems(CONTEXT_MENU_ITEMS, 'root')}
           </div>
+          {submenu ? (
+            <div
+              ref={submenuRef}
+              className="editor-context-menu editor-context-submenu"
+              style={{ left: submenu.x, top: submenu.y }}
+              onMouseDown={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+            >
+              {renderContextItems(submenu.items, submenu.key)}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </>

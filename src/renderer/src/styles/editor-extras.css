@@ -187,6 +187,13 @@
   background: transparent;
   overflow: visible;
 }
+
+.cm-block.cm-frontmatter-block {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+}
 .cm-toc-block > .cm-block-toolbar,
 .cm-frontmatter-block > .cm-block-toolbar {
   min-height: 24px;
@@ -229,7 +236,7 @@
 }
 .cm-frontmatter-table {
   width: 100%;
-  margin: 2px 0;
+  margin: 0;
 }
 .cm-frontmatter-table th,
 .cm-frontmatter-table td {
@@ -237,7 +244,7 @@
   border-bottom: none;
 }
 .cm-frontmatter-raw {
-  margin: 4px 0 8px;
+  margin: 4px 0 0;
   border-radius: 0;
 }
 .cm-frontmatter-note { margin: 4px 0; }

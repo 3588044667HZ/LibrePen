@@ -45,6 +45,11 @@
 | `--mono` | 兼容别名，默认等于 `--code-font` |
 | `--content-width` | 编辑内容列最大宽度；内置主题为 920px，≥1400px 为 1084px，≥1800px 为 1260px |
 | `--content-padding-x` | 编辑内容左右内边距；内置主题为 30px |
+| `--content-gutter` | 内容列与编辑器边缘的最小外侧留白；内置主题为 48px |
+| `--source-heading` | 源码模式标题颜色 |
+| `--source-link` | 源码模式链接/URL 颜色 |
+| `--source-math` | 源码模式公式命令颜色 |
+| `--source-html-tag` / `-attr` / `-value` | 源码模式 HTML 标签、属性、值颜色 |
 | `--table-border` / `--table-header-bg` | 表格边框与表头背景 |
 | `--table-code-bg` / `--table-code-border` | 表格内行内代码 |
 | `--mark` | 高亮背景 |
@@ -103,6 +108,12 @@ html[data-theme='dark'] {
 | `.cm-block-toolbar` | 块工具栏 |
 | `.cm-block-action` | 块工具栏按钮 |
 | `.cm-code-block .hljs-*` | 代码高亮 token，例如 `.hljs-keyword` |
+| `.cm-src-h1` … `.cm-src-h6` | 源码模式标题行 |
+| `.cm-src-code-line` / `.cm-src-code-fence` | 源码模式代码块行/围栏 |
+| `.cm-src-quote-line` | 源码模式引用行 |
+| `.cm-src-math-line` / `.cm-src-math-command` | 源码模式公式行/命令 |
+| `.cm-src-html-tag` / `.cm-src-html-name` / `.cm-src-html-attr` / `.cm-src-html-value` | 源码模式 HTML 语法着色 |
+| `.cm-src-frontmatter` | 源码模式 Front Matter 行 |
 
 ### 不承诺稳定的选择器
 

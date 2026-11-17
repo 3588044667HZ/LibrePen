@@ -5,6 +5,8 @@ import { renderInlineMarkdown } from '../inlineMarkdown'
 import {
   addColumn,
   addRow,
+  moveColumn,
+  moveRow,
   parseTable,
   removeColumn,
   removeRow,
@@ -30,6 +32,8 @@ class TableWidget extends WidgetType {
   private container: HTMLElement | null = null
   private tableHost: HTMLElement | null = null
   private panel: HTMLElement | null = null
+  private contextMenu: HTMLElement | null = null
+  private contextCleanup: (() => void) | null = null
   private focusedRow = -1
   private focusedCol = 0
   private columnWidths: number[] | null = null
@@ -140,6 +144,14 @@ class TableWidget extends WidgetType {
     table.append(thead, tbody)
     this.applySizes(table)
     table.addEventListener('mousedown', (event) => event.stopPropagation())
+    table.addEventListener('contextmenu', (event) => {
+      if (!(event.target instanceof HTMLElement)) return
+      const cell = event.target.closest<HTMLTableCellElement>('th, td')
+      if (!cell) return
+      event.preventDefault()
+      event.stopPropagation()
+      this.openTableMenu(view, event, Number(cell.dataset.row ?? '-1'), Number(cell.dataset.col ?? '0'))
+    })
     table.addEventListener('click', (event) => {
       if (!(event.target instanceof HTMLElement)) return
       const cell = event.target.closest<HTMLTableCellElement>('th, td')
@@ -262,6 +274,102 @@ class TableWidget extends WidgetType {
     document.body.classList.add('cm-table-resizing')
     document.addEventListener('mousemove', move)
     document.addEventListener('mouseup', up)
+  }
+
+  private openTableMenu(view: EditorView, event: MouseEvent, row: number, column: number): void {
+    this.closeTableMenu()
+    if (this.panel) this.syncFromInputs()
+    const menu = document.createElement('div')
+    menu.className = 'cm-table-context-menu'
+    menu.setAttribute('role', 'menu')
+    const bodyRow = row >= 0 ? row : 0
+    const add = (label: string, shortcut: string, action: () => void, disabled = false): void => {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'cm-table-context-item'
+      button.disabled = disabled
+      const text = document.createElement('span')
+      text.textContent = label
+      button.appendChild(text)
+      if (shortcut) {
+        const hint = document.createElement('span')
+        hint.className = 'cm-table-context-shortcut'
+        hint.textContent = shortcut
+        button.appendChild(hint)
+      }
+      button.addEventListener('click', (clickEvent) => {
+        clickEvent.preventDefault()
+        clickEvent.stopPropagation()
+        if (disabled) return
+        action()
+        this.closeTableMenu()
+      })
+      menu.appendChild(button)
+    }
+    const separator = (): void => {
+      const line = document.createElement('div')
+      line.className = 'cm-table-context-separator'
+      menu.appendChild(line)
+    }
+    add('上方插入行', 'Ctrl+Enter', () => this.commitTable(view, addRow(this.model, bodyRow)))
+    add('下方插入行', '', () => this.commitTable(view, addRow(this.model, bodyRow + 1)))
+    add('左侧插入列', '', () => this.commitTable(view, addColumn(this.model, column)))
+    add('右侧插入列', '', () => this.commitTable(view, addColumn(this.model, column + 1)))
+    separator()
+    add('上移该行', 'Alt+↑', () => this.commitTable(view, moveRow(this.model, row, row - 1)), row <= 0)
+    add('下移该行', 'Alt+↓', () => this.commitTable(view, moveRow(this.model, row, row + 1)), row < 0 || row >= this.model.rows.length - 1)
+    add('左移该列', 'Alt+←', () => this.commitTable(view, moveColumn(this.model, column, column - 1)), column <= 0)
+    add('右移该列', 'Alt+→', () => this.commitTable(view, moveColumn(this.model, column, column + 1)), column >= this.model.header.length - 1)
+    separator()
+    add('删除行', 'Ctrl+Shift+⌫', () => this.commitTable(view, removeRow(this.model, row)), row < 0)
+    add('删除列', '', () => this.commitTable(view, removeColumn(this.model, column)), this.model.header.length <= 1)
+    separator()
+    add('复制表格', '', () => { void window.api.clipboard.writeText(serializeTable(this.model)) })
+    add('格式化表格源码', '', () => this.commitTable(view, this.model))
+    separator()
+    add('删除表格', '', () => this.removeTable(view))
+    document.body.appendChild(menu)
+    const rect = menu.getBoundingClientRect()
+    const left = Math.max(8, Math.min(event.clientX, window.innerWidth - rect.width - 8))
+    const top = Math.max(8, Math.min(event.clientY, window.innerHeight - rect.height - 8))
+    menu.style.left = left + 'px'
+    menu.style.top = top + 'px'
+    const close = (closeEvent: MouseEvent): void => {
+      if (!menu.contains(closeEvent.target as Node)) this.closeTableMenu()
+    }
+    const key = (keyEvent: KeyboardEvent): void => {
+      if (keyEvent.key === 'Escape') this.closeTableMenu()
+    }
+    document.addEventListener('mousedown', close, true)
+    document.addEventListener('keydown', key)
+    this.contextCleanup = () => {
+      document.removeEventListener('mousedown', close, true)
+      document.removeEventListener('keydown', key)
+    }
+    this.contextMenu = menu
+  }
+
+  private commitTable(view: EditorView, model: TableModel): void {
+    this.model = model
+    const text = serializeTable(model)
+    const max = view.state.doc.length
+    const from = Math.min(Math.max(this.descriptor.from, 0), max)
+    const to = Math.min(Math.max(this.descriptor.to, from), max)
+    view.dispatch({ changes: { from, to, insert: text } })
+  }
+
+  private removeTable(view: EditorView): void {
+    const max = view.state.doc.length
+    const from = Math.min(Math.max(this.descriptor.from, 0), max)
+    const to = Math.min(Math.max(this.descriptor.to, from), max)
+    view.dispatch({ changes: { from, to, insert: '' } })
+  }
+
+  private closeTableMenu(): void {
+    this.contextCleanup?.()
+    this.contextCleanup = null
+    this.contextMenu?.remove()
+    this.contextMenu = null
   }
 
   private openPanel(view: EditorView, row: number, column: number): void {

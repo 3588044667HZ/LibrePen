@@ -1,5 +1,18 @@
 ﻿import { describe, expect, it } from 'vitest'
-import { addColumn, addRow, cycleAlign, escapeCell, parseTable, removeColumn, removeRow, serializeTable, setCell, type TableModel } from '../src/renderer/src/editor/blocks/tableModel'
+import {
+  addColumn,
+  addRow,
+  cycleAlign,
+  escapeCell,
+  moveColumn,
+  moveRow,
+  parseTable,
+  removeColumn,
+  removeRow,
+  serializeTable,
+  setCell,
+  type TableModel
+} from '../src/renderer/src/editor/blocks/tableModel'
 
 function parse(markdown: string): TableModel {
   const model = parseTable(markdown)
@@ -295,5 +308,39 @@ describe('cycleAlign', () => {
     const model = sample()
     expect(cycleAlign(model, 5)).toBe(model)
     expect(cycleAlign(model, -1)).toBe(model)
+  })
+})
+
+describe('moveRow', () => {
+  it('moves a body row without mutating the source', () => {
+    const model = sample()
+    const next = moveRow(model, 0, 1)
+    expect(next.rows).toEqual([
+      ['Bob', '25'],
+      ['Alice', '30']
+    ])
+    expect(model.rows[0]).toEqual(['Alice', '30'])
+  })
+
+  it('ignores invalid row moves', () => {
+    const model = sample()
+    expect(moveRow(model, -1, 0)).toBe(model)
+    expect(moveRow(model, 0, 5)).toBe(model)
+  })
+})
+
+describe('moveColumn', () => {
+  it('moves header, alignments, and cells together', () => {
+    const model = sample()
+    const next = moveColumn(model, 0, 1)
+    expect(next.header).toEqual(['Age', 'Name'])
+    expect(next.alignments).toEqual(['right', 'none'])
+    expect(next.rows[0]).toEqual(['30', 'Alice'])
+  })
+
+  it('ignores invalid column moves', () => {
+    const model = sample()
+    expect(moveColumn(model, -1, 0)).toBe(model)
+    expect(moveColumn(model, 0, 5)).toBe(model)
   })
 })

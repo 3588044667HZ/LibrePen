@@ -65,6 +65,13 @@
   --mono: var(--code-font);
   --content-width: 920px;
   --content-padding-x: 30px;
+  --content-gutter: 48px;
+  --source-heading: #c7254e;
+  --source-link: #b76b01;
+  --source-math: #1a7f37;
+  --source-html-tag: #d73a49;
+  --source-html-attr: #6f42c1;
+  --source-html-value: #032f62;
   --sidebar-width: 260px;
   --titlebar-height: 36px;
   --statusbar-height: 28px;
@@ -85,6 +92,12 @@ html[data-theme='dark'] {
   --border: #3c3c3c;
   --accent: #4ea1ff;
   --link: #4ea1ff;
+  --source-heading: #ff7b9c;
+  --source-link: #6ea8d8;
+  --source-math: #7ee787;
+  --source-html-tag: #ff7b72;
+  --source-html-attr: #d2a8ff;
+  --source-html-value: #a5d6ff;
   --quote-fg: #9d9d9d;
   --quote-border: #3c3c3c;
   --heading-divider: #3c3c3c;

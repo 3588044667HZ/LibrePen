@@ -137,6 +137,34 @@ export function removeColumn(model: TableModel, index: number): TableModel {
   return { header, alignments, rows }
 }
 
+export function moveRow(model: TableModel, from: number, to: number): TableModel {
+  if (!Number.isInteger(from) || !Number.isInteger(to)) return model
+  if (from < 0 || from >= model.rows.length || to < 0 || to >= model.rows.length) return model
+  if (from === to) return model
+  const rows = model.rows.map((cells) => cells.slice())
+  const [row] = rows.splice(from, 1)
+  rows.splice(to, 0, row)
+  return { ...model, rows }
+}
+
+export function moveColumn(model: TableModel, from: number, to: number): TableModel {
+  const width = model.header.length
+  if (!Number.isInteger(from) || !Number.isInteger(to)) return model
+  if (from < 0 || from >= width || to < 0 || to >= width) return model
+  if (from === to) return model
+  const move = <T>(values: T[]): T[] => {
+    const next = values.slice()
+    const [value] = next.splice(from, 1)
+    next.splice(to, 0, value)
+    return next
+  }
+  return {
+    header: move(model.header),
+    alignments: move(model.alignments),
+    rows: model.rows.map((row) => move(row))
+  }
+}
+
 export function setCell(model: TableModel, row: number, col: number, value: string): TableModel {
   const width = model.header.length
   if (!Number.isInteger(col) || col < 0 || col >= width) return model

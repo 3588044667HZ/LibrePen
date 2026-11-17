@@ -1,7 +1,6 @@
 ﻿import { EditorView, WidgetType } from '@codemirror/view'
 import { extractOutline } from '@shared/markdown'
 import '../../styles/editor-extras.css'
-import { editBlock } from './blockState'
 import { applyIconButton } from './iconButton'
 import type { BlockDescriptor, BlockWidgetFactory } from './types'
 
@@ -69,12 +68,6 @@ class TocWidget extends WidgetType {
     const title = document.createElement('span')
     title.className = 'cm-block-title'
     title.textContent = '目录'
-    const editButton = document.createElement('button')
-    editButton.type = 'button'
-    editButton.className = 'cm-block-action'
-    applyIconButton(editButton, 'bi-code-slash', '编辑源码')
-    editButton.addEventListener('click', () => editBlock(view, this.descriptor))
-
     const removeButton = document.createElement('button')
     removeButton.type = 'button'
     removeButton.className = 'cm-block-action'
@@ -92,7 +85,7 @@ class TocWidget extends WidgetType {
       view.dispatch({ changes: { from, to, insert: '' }, selection: { anchor: from } })
       view.focus()
     })
-    toolbar.append(title, editButton, removeButton)
+    toolbar.append(title, removeButton)
     return toolbar
   }
 }

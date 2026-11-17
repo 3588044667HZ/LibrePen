@@ -9,7 +9,34 @@ const markdownOverride = HighlightStyle.define([
   { tag: tags.link, textDecoration: 'none' }
 ])
 
-export function editorTheme(settings: Settings, dark: boolean) {
+function sourceHighlightStyle(dark: boolean) {
+  const link = 'var(--source-link)'
+  return HighlightStyle.define([
+    { tag: tags.heading1, fontSize: '1.75em', fontWeight: '700', color: 'var(--source-heading)' },
+    { tag: tags.heading2, fontSize: '1.5em', fontWeight: '700', color: dark ? '#ff7b9c' : '#c7254e' },
+    { tag: tags.heading3, fontSize: '1.3em', fontWeight: '700', color: dark ? '#ff7b9c' : '#c7254e' },
+    { tag: tags.heading4, fontSize: '1.15em', fontWeight: '700', color: dark ? '#ff7b9c' : '#c7254e' },
+    { tag: tags.heading5, fontSize: '1.05em', fontWeight: '700', color: dark ? '#ff7b9c' : '#c7254e' },
+    { tag: tags.heading6, fontSize: '1em', fontWeight: '700', color: dark ? '#ff7b9c' : '#c7254e' },
+    { tag: tags.strong, fontWeight: '700' },
+    { tag: tags.emphasis, fontStyle: 'italic' },
+    { tag: tags.strikethrough, textDecoration: 'line-through' },
+    { tag: tags.monospace, fontFamily: 'var(--mono)', backgroundColor: 'var(--code-bg)', borderRadius: '3px' },
+    { tag: tags.link, color: link, textDecoration: 'underline' },
+    { tag: tags.url, color: link, textDecoration: 'underline' },
+    { tag: tags.quote, color: 'var(--quote-fg)' },
+    { tag: tags.tagName, color: 'var(--source-html-tag)' },
+    { tag: tags.attributeName, color: 'var(--source-html-attr)' },
+    { tag: tags.attributeValue, color: 'var(--source-html-value)' },
+    { tag: tags.keyword, color: dark ? '#ff7b72' : '#d73a49' },
+    { tag: tags.string, color: dark ? '#a5d6ff' : '#032f62' },
+    { tag: tags.comment, color: dark ? '#8b949e' : '#6a737d', fontStyle: 'italic' },
+    { tag: tags.number, color: dark ? '#79c0ff' : '#005cc5' },
+    { tag: tags.operator, color: dark ? '#ff7b72' : '#d73a49' }
+  ])
+}
+
+export function editorTheme(settings: Settings, dark: boolean, sourceMode = false) {
   const fontSize = settings.editor.fontSize * settings.editor.fontSizeZoom
   return [
     EditorView.theme(
@@ -27,8 +54,9 @@ export function editorTheme(settings: Settings, dark: boolean) {
           lineHeight: 'var(--editor-line-height)'
         },
         '.cm-content': {
+          flex: '0 1 auto',
           maxWidth: 'var(--content-width, 920px)',
-          width: '100%',
+          width: 'calc(100% - var(--content-gutter, 48px) - var(--content-gutter, 48px))',
           margin: '0 auto',
           padding: '30px 0 45vh',
           caretColor: 'var(--accent)'
@@ -82,6 +110,6 @@ export function editorTheme(settings: Settings, dark: boolean) {
       { dark }
     ),
     syntaxHighlighting(dark ? oneDarkHighlightStyle : defaultHighlightStyle, { fallback: true }),
-    syntaxHighlighting(markdownOverride)
+    sourceMode ? syntaxHighlighting(sourceHighlightStyle(dark)) : syntaxHighlighting(markdownOverride)
   ]
 }

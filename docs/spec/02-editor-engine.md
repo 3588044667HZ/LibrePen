@@ -75,7 +75,7 @@ CM6 禁止 ViewPlugin 提供的装饰替换换行；因此表格/代码/公式/M
 | 列表 `- ` / `1. ` | 保留符号，样式化 | 正常 | line decoration |
 | 行内 HTML | 源码（P0），P1 沙箱预览 | – | 不做替换 |
 | Front matter | 折叠为「元数据」条（P1） | 展开 | P1 |
-| `[toc]` | 生成目录 Widget（P1）；聚焦显示编辑边框、可删除 | 显示源码 | P1 |
+| `[toc]` | 生成目录 Widget（P1）；聚焦显示边框、可删除 | 源码模式显示 `[toc]` | P1 |
 
 ### 2.3 折叠算法
 
@@ -189,7 +189,7 @@ resolveImageSrc(raw, docDir) => {
 ## 5. 源码模式
 
 - 顶栏 `bi-code-slash` 图标或 `Ctrl+/` 切换；图标 active 表示当前为源码模式。
-- 关闭 `livePreview` 与块级 Widget，保留原生 Markdown 源码、语法高亮与等宽字体。
+- 关闭 `livePreview` 与块级 Widget，保留完整 Markdown 标记，同时应用源码语法着色：标题、粗体/斜体、删除线、行内代码、链接/URL、引用、代码块、公式命令、HTML 标签与属性。
 - 切换不改变文档与撤销历史；再次切回恢复块渲染。
 - 状态写入 `localStorage('librepen:source-mode')`，重启保持；打开新文件不强制退出源码模式。
 
