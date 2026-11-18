@@ -47,6 +47,7 @@ import { editorTheme } from './theme'
 import { findBlockAt, setBlockEdit } from './blocks/blockState'
 import { focusModeExtension, typewriterModeExtension } from './effects'
 import { markdownAutocomplete } from './autocomplete'
+import { findLinkAt, selectedLink } from './links'
 
 export interface EditorHandle {
   getContent(): string
@@ -306,7 +307,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
             }
           }),
           EditorView.domEventHandlers({
-            mousedown: (event, view) => handleDocumentEndClick(event, view),
+            mousedown: (event, view) =>
+              handleLinkClick(event, view) || handleDocumentEndClick(event, view),
             paste: (event) => handlePaste(event),
             drop: (event) => handleDrop(event),
             contextmenu: (event) => {
@@ -773,6 +775,17 @@ function stripFormattingBlock(block: string): string {
     out.push(stripFormatting(line))
   }
   return out.join('\n')
+}
+
+function handleLinkClick(event: MouseEvent, view: EditorView): boolean {
+  if (event.button !== 0 || (!event.ctrlKey && !event.metaKey)) return false
+  const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
+  const target = (pos === null ? null : findLinkAt(view.state, pos)) ?? selectedLink(view.state)
+  if (!target) return false
+  event.preventDefault()
+  event.stopPropagation()
+  void window.api.shell.openExternal(target).catch(() => undefined)
+  return true
 }
 
 function handleDocumentEndClick(event: MouseEvent, view: EditorView): boolean {
