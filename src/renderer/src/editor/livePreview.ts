@@ -9,6 +9,7 @@ import {
   type ViewUpdate
 } from '@codemirror/view'
 import katex from 'katex'
+import { mathFenceKind } from '@shared/markdown'
 import { createBlockLayer, type BlockLayer } from './blocks/blockState'
 import { createTableWidget } from './blocks/tableWidget'
 import { createCodeWidget } from './blocks/codeWidget'
@@ -413,7 +414,7 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
       continue
     }
 
-    if (/^\s*\$\$\s*$/.test(text)) {
+    if (mathFenceKind(text)) {
       addLineClass(line.from, 'cm-md-math-fence')
       inMathBlock = !inMathBlock
       continue
@@ -452,14 +453,21 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
     if (/^\s*\|/.test(text)) addLineClass(line.from, 'cm-md-table-line')
 
     if (options.inlineMath) {
-      const mathRegex = /(?<![\\$])\$([^$\n]+?)(?<!\\)\$(?!\$)/g
-      let match: RegExpExecArray | null
-      while ((match = mathRegex.exec(text)) !== null) {
-        const from = line.from + match.index
-        const to = from + match[0].length
-        if (inOpaque(from, to)) continue
-        if (!touches(from, to)) {
-          addReplace(from, to, new MathInlineWidget(match[1], from))
+      const mathRegexes = [
+        { regex: /(?<![\\$])\$([^$\n]+?)(?<!\\)\$(?!\$)/g, display: false },
+        { regex: /(?<!\\)\\\(([\s\S]*?)\\\)/g, display: false },
+        { regex: /(?<!\\)\\\[([\s\S]*?)\\\]/g, display: true }
+      ]
+      for (const { regex, display } of mathRegexes) {
+        regex.lastIndex = 0
+        let match: RegExpExecArray | null
+        while ((match = regex.exec(text)) !== null) {
+          const from = line.from + match.index
+          const to = from + match[0].length
+          if (inOpaque(from, to)) continue
+          if (!touches(from, to)) {
+            addReplace(from, to, new MathInlineWidget(match[1], from, display))
+          }
         }
       }
     }
@@ -716,27 +724,33 @@ class ImageWidget extends WidgetType {
 class MathInlineWidget extends WidgetType {
   constructor(
     private readonly tex: string,
-    private readonly pos: number
+    private readonly pos: number,
+    private readonly display = false
   ) {
     super()
   }
 
   eq(other: WidgetType): boolean {
-    return other instanceof MathInlineWidget && other.tex === this.tex && other.pos === this.pos
+    return (
+      other instanceof MathInlineWidget &&
+      other.tex === this.tex &&
+      other.pos === this.pos &&
+      other.display === this.display
+    )
   }
 
   toDOM(view: EditorView): HTMLElement {
     const wrapper = document.createElement('span')
-    wrapper.className = 'cm-md-math'
+    wrapper.className = this.display ? 'cm-md-math cm-md-math-display' : 'cm-md-math'
     try {
       wrapper.innerHTML = katex.renderToString(this.tex, {
-        displayMode: false,
+        displayMode: this.display,
         throwOnError: false,
         output: 'html'
       })
     } catch {
       wrapper.classList.add('cm-md-math-error')
-      wrapper.textContent = `$${this.tex}$`
+      wrapper.textContent = this.display ? `\\[${this.tex}\\]` : `\\(${this.tex}\\)`
     }
     selectOnMouseDown(wrapper, view, this.pos)
     return wrapper

@@ -1,5 +1,6 @@
 import { WidgetType, type EditorView } from '@codemirror/view'
 import katex from 'katex'
+import { mathFenceKind } from '@shared/markdown'
 import { editBlock } from './blockState'
 import { applyIconButton } from './iconButton'
 import type { BlockDescriptor, BlockWidgetFactory } from './types'
@@ -33,8 +34,12 @@ function extractMath(content: string): MathParts {
     return { tex: trimBlank(body).join('\n'), openingLength: first.length }
   }
   let body = lines
-  if (body.length > 0 && /^\s{0,3}\$\$\s*$/.test(body[0])) body = body.slice(1)
-  if (body.length > 0 && /^\s{0,3}\$\$\s*$/.test(body[body.length - 1])) body = body.slice(0, -1)
+  const firstKind = mathFenceKind(first)
+  if (firstKind === '$$' || firstKind === '\\[') {
+    const closeKind = firstKind === '\\[' ? '\\]' : '$$'
+    body = body.slice(1)
+    if (body.length > 0 && mathFenceKind(body[body.length - 1]) === closeKind) body = body.slice(0, -1)
+  }
   return { tex: trimBlank(body).join('\n'), openingLength: first.length }
 }
 

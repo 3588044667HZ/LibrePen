@@ -284,7 +284,7 @@ function buildPandocArgs(
 ): string[] {
   const args = [
     '--from',
-    'markdown+mark+footnotes+definition_lists+task_lists+tex_math_dollars+superscript+subscript+strikeout+pipe_tables',
+    'markdown+mark+footnotes+definition_lists+task_lists+tex_math_dollars+tex_math_single_backslash+superscript+subscript+strikeout+pipe_tables',
     '--standalone',
     '--to',
     format,

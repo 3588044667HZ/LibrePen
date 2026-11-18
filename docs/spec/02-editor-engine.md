@@ -29,7 +29,7 @@ CommonMark + GFM（表格、任务列表、删除线、自动链接）+ Typora �
 - 标题（ATX/setext 解析兼容；编辑只生成 ATX）
 - 围栏代码（含语言、`math`/`mermaid` 特判）
 - 表格、任务列表、脚注、TOC `[toc]`、YAML front matter
-- 行内数学 `$...$`（可关闭）、块数学 `$$...$$`
+- 行内数学 `$...$` / `\(...\)`（可关闭）、块数学 `$$...$$` / `\[...\]`
 - 高亮 `==text==`、上标 `^text^`、下标 `~text~`（与删除线歧义时按设置）
 - `[^note]` 脚注引用、emoji 短代码（P1）
 - 原始 HTML：编辑区按源码显示；导出前 DOMPurify 白名单（P1 内嵌预览）
@@ -65,8 +65,8 @@ CM6 禁止 ViewPlugin 提供的装饰替换换行；因此表格/代码/公式/M
 | 链接 `[t](u)` | 隐藏 `[`、`](u)`，t 变色 | 显示全文 | replace + mark |
 | 自动链接/裸 URL | 变蓝，可 Ctrl+Click | – | mark + click handler |
 | 图片 `![a](s)` | 渲染图片 Widget | 显示源码 | replace widget，原子 |
-| 行内数学 `$x$` | KaTeX Widget | 显示 `$x$` | replace widget，原子 |
-| 块数学 `$$...$$` | 块级 KaTeX Widget，点击进入 | 源码 + 行号 | block widget（P0 用行装饰 + 折叠 fence） |
+| 行内数学 `$x$` / `\(x\)` | KaTeX Widget | 显示 `$x$` | replace widget，原子 |
+| 块数学 `$$...$$` / `\[...\]` | 块级 KaTeX Widget，点击进入 | 源码 + 行号 | block widget（P0 用行装饰 + 折叠 fence） |
 | 代码围栏 | 渲染只读高亮块；点击进入内嵌 CM6 动态高亮编辑 | 显示 fence 行 | 内嵌 EditorView + language-data；点击外部提交 |
 | 表格 | 渲染 `TableWidget`；单元格内联 Markdown（code/strong/em/link）；面板编辑 | – | P1 |
 | 任务列表 `- [x]` | 可点击复选框，隐藏 `- [x]` | 显示源码 | replace widget |

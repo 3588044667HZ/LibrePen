@@ -9,7 +9,7 @@ Markdown source
   -> markdown-it (html:false, linkify:true, typographer:false)
      plugins: footnote, task-lists, deflist, mark, sub, sup, anchor
   -> 自定义规则：
-       $...$ / $$...$$ -> KaTeX HTML（失败则保留源码 + .math-error）
+       $...$ / \(...\) / $$...$$ / \[...\] -> KaTeX HTML（失败则保留源码 + .math-error）
        ```mermaid -> 预渲染 SVG（renderer 内异步）或降级 <pre>
        ```lang -> highlight.js
        图片相对路径 -> 绝对 file:// 或内联 data:（导出单文件）
@@ -54,7 +54,7 @@ Markdown source
 ### 6.1 当前实现：DOCX
 
 - 设置中配置 Pandoc 路径；未配置时从 PATH 调用 `pandoc`。
-- 导出 Word 使用 `--from=markdown+... --to=docx`，保留标题、列表、表格、代码、公式、图片和脚注。
+- 导出 Word 使用 `--from=markdown+...+tex_math_single_backslash --to=docx`，保留标题、列表、表格、代码、公式、图片和脚注。
 - 图片通过 `--resource-path=<文档目录>` 解析；SVG 图片先用隐藏 Chromium 窗口栅格化为 PNG（上限 2048px / 10MB）并替换 Markdown 引用，再交给 Pandoc。
 - 临时 Markdown、SVG PNG 与输出文件在系统临时目录生成，成功后原子写入用户选择路径，失败或结束后清理。
 - 外部进程使用参数数组 `execFile(pandocPath, args)`，不使用 shell；超时 120s，stdout/stderr 有上限。

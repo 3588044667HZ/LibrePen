@@ -20,6 +20,13 @@ describe('preparePandocMarkdown', () => {
     expect(result).toContain('# One {#librepen-heading-1}')
   })
 
+  it('ignores toc markers inside backslash display math', async () => {
+    const result = await preparePandocMarkdown('\\[\n[toc]\n\\]\n\n# One\n')
+
+    expect(result).toContain('[toc]')
+    expect(result).not.toContain('## 目录')
+  })
+
   it('ignores toc markers inside fenced code', async () => {
     const result = await preparePandocMarkdown('```\n[toc]\n```\n\n# One\n')
 

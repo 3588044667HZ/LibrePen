@@ -157,6 +157,12 @@ describe('extractOutline', () => {
     ])
   })
 
+  it('skips backslash-delimited display math blocks', () => {
+    expect(extractOutline('\\[\n# fake\n\\]\n# real')).toEqual([
+      { level: 1, text: 'real', line: 3, id: 'real' }
+    ])
+  })
+
   it('does not treat blockquote hashes as headings', () => {
     expect(extractOutline('> # quoted')).toEqual([])
   })

@@ -1,8 +1,7 @@
-﻿import { extractOutline } from '@shared/markdown'
+﻿import { extractOutline, mathFenceKind } from '@shared/markdown'
 
 const ATX_RE = /^\s{0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$/
 const FENCE_RE = /^\s{0,3}(`{3,}|~{3,})/
-const MATH_BLOCK_RE = /^\s*\$\$\s*$/
 const TOC_RE = /^\s{0,3}\[toc\]\s*$/i
 
 export interface PandocMarkdownOptions {
@@ -127,7 +126,7 @@ function findTocMarkers(lines: string[]): number[] {
       continue
     }
     if (fence) continue
-    if (MATH_BLOCK_RE.test(line)) {
+    if (mathFenceKind(line)) {
       inMath = !inMath
       continue
     }

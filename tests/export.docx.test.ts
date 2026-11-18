@@ -69,6 +69,7 @@ describe('ExportService.exportDocument', () => {
       expect(command).toBe('pandoc')
       expect(args).toContain('--to')
       expect(args).toContain(format)
+      expect(args[args.indexOf('--from') + 1]).toContain('tex_math_single_backslash')
       expect(args).toContain('--output')
     }
   )

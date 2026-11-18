@@ -7,6 +7,7 @@ import {
   type ViewUpdate
 } from '@codemirror/view'
 import type { EditorState, Extension, Range } from '@codemirror/state'
+import { mathFenceKind } from '@shared/markdown'
 
 export function sourceSyntax(): Extension {
   return ViewPlugin.fromClass(
@@ -76,7 +77,7 @@ function buildSourceDecorations(view: EditorView): DecorationSet {
     if (codeLines.has(n)) continue
     if (frontMatter.has(n)) addLine(line.from, 'cm-src-frontmatter')
     const text = line.text
-    if (/^\s*\$\$\s*$/.test(text)) {
+    if (mathFenceKind(text)) {
       addLine(line.from, 'cm-src-math-line')
       inMath = !inMath
       continue
@@ -87,11 +88,17 @@ function buildSourceDecorations(view: EditorView): DecorationSet {
       continue
     }
     if (/^\s{0,3}>/.test(text)) addLine(line.from, 'cm-src-quote-line')
-    const mathRegex = /(?<![\\$])\$([^$\n]+?)(?<!\\)\$(?!\$)/g
-    let mathMatch: RegExpExecArray | null
-    while ((mathMatch = mathRegex.exec(text)) !== null) {
-      const from = line.from + mathMatch.index
-      markMath(from, mathMatch[0], addMark)
+    const mathRegexes = [
+      /(?<![\\$])\$([^$\n]+?)(?<!\\)\$(?!\$)/g,
+      /(?<!\\)\\\(([\s\S]*?)\\\)/g,
+      /(?<!\\)\\\[([\s\S]*?)\\\]/g
+    ]
+    for (const mathRegex of mathRegexes) {
+      mathRegex.lastIndex = 0
+      let mathMatch: RegExpExecArray | null
+      while ((mathMatch = mathRegex.exec(text)) !== null) {
+        markMath(line.from + mathMatch.index, mathMatch[0], addMark)
+      }
     }
     markHtml(line.from, text, addMark)
   }

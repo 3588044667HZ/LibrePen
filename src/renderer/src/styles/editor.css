@@ -235,6 +235,13 @@
   cursor: pointer;
 }
 
+.cm-md-math-display {
+  display: block;
+  padding: 4px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
 .cm-md-math-error {
   color: var(--danger);
   font-family: var(--mono);

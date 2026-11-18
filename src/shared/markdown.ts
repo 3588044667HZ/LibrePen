@@ -18,7 +18,12 @@ const CJK_RE = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\u3040-\u30ff\uac00-\ud7
 const FENCE_RE = /^\s{0,3}(`{3,}|~{3,})/
 const ATX_RE = /^\s{0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$/
 const SETEXT_RE = /^\s{0,3}(=+|-+)\s*$/
-const MATH_BLOCK_RE = /^\s*\$\$\s*$/
+export type MathFenceKind = '$$' | '\\[' | '\\]'
+
+export function mathFenceKind(text: string): MathFenceKind | null {
+  const match = /^\s{0,3}(\$\$|\\\[|\\\])\s*$/.exec(text)
+  return match ? (match[1] as MathFenceKind) : null
+}
 
 export function normalizeEol(text: string, eol: Eol): string {
   const lf = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
@@ -123,7 +128,7 @@ export function extractOutline(markdown: string): OutlineItem[] {
       continue
     }
     if (fence) continue
-    if (MATH_BLOCK_RE.test(line)) {
+    if (mathFenceKind(line)) {
       inMath = !inMath
       continue
     }

@@ -54,7 +54,11 @@ function createRenderer(docPath: string | null): MarkdownIt {
   })
 
   md.inline.ruler.before('escape', 'math_inline', mathInlineRule)
+  md.inline.ruler.before('escape', 'math_inline_backslash', mathInlineBackslashRule)
   md.block.ruler.before('fence', 'math_block', mathBlockRule, {
+    alt: ['paragraph', 'reference', 'blockquote', 'list']
+  })
+  md.block.ruler.before('fence', 'math_block_backslash', mathBlockBackslashRule, {
     alt: ['paragraph', 'reference', 'blockquote', 'list']
   })
 
@@ -338,6 +342,30 @@ function mathInlineRule(state: StateInline, silent: boolean): boolean {
   return false
 }
 
+function mathInlineBackslashRule(state: StateInline, silent: boolean): boolean {
+  const start = state.pos
+  if (start + 1 >= state.posMax) return false
+  if (state.src.charCodeAt(start) !== 0x5c || state.src.charCodeAt(start + 1) !== 0x28) return false
+
+  let pos = start + 2
+  while (pos + 1 < state.posMax) {
+    if (state.src.charCodeAt(pos) === 0x0a) return false
+    if (state.src.charCodeAt(pos) === 0x5c && state.src.charCodeAt(pos + 1) === 0x29) {
+      const content = state.src.slice(start + 2, pos)
+      if (!content.trim()) return false
+      if (!silent) {
+        const token = state.push('math_inline', 'math', 0)
+        token.content = content
+        token.markup = '\\('
+      }
+      state.pos = pos + 2
+      return true
+    }
+    pos++
+  }
+  return false
+}
+
 function mathBlockRule(
   state: StateBlock,
   startLine: number,
@@ -387,6 +415,59 @@ function mathBlockRule(
     token.content = lines.join('\n').trim()
     token.map = [startLine, nextLine + 1]
     token.markup = '$$'
+  }
+  return true
+}
+
+function mathBlockBackslashRule(
+  state: StateBlock,
+  startLine: number,
+  endLine: number,
+  silent: boolean
+): boolean {
+  const start = state.bMarks[startLine] + state.tShift[startLine]
+  const max = state.eMarks[startLine]
+  if (start + 2 > max) return false
+  if (state.src.slice(start, start + 2) !== '\\[') return false
+  if (silent) return true
+
+  const opening = state.src.slice(start + 2, max)
+  const sameLine = opening.search(/\\\]/)
+  if (sameLine >= 0) {
+    if (!silent) {
+      const token = state.push('math_block', 'math', 0)
+      token.content = opening.slice(0, sameLine).trim()
+      token.map = [startLine, startLine + 1]
+      token.markup = '\\['
+    }
+    state.line = startLine + 1
+    return true
+  }
+
+  const lines = [opening]
+  let nextLine = startLine + 1
+  let closed = false
+  while (nextLine < endLine) {
+    const lineStart = state.bMarks[nextLine] + state.tShift[nextLine]
+    const lineEnd = state.eMarks[nextLine]
+    const text = state.src.slice(lineStart, lineEnd)
+    const closeIndex = text.search(/\\\]\s*$/)
+    if (closeIndex >= 0) {
+      const before = text.slice(0, closeIndex)
+      if (before.trim()) lines.push(before)
+      closed = true
+      break
+    }
+    lines.push(text)
+    nextLine++
+  }
+  if (!closed) return false
+  state.line = nextLine + 1
+  if (!silent) {
+    const token = state.push('math_block', 'math', 0)
+    token.content = lines.join('\n').trim()
+    token.map = [startLine, nextLine + 1]
+    token.markup = '\\['
   }
   return true
 }

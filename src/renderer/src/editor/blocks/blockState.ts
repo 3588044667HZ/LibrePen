@@ -1,6 +1,7 @@
 import { StateEffect, StateField, type EditorState, type Extension, type Range } from '@codemirror/state'
 import { Decoration, EditorView, type DecorationSet } from '@codemirror/view'
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language'
+import { mathFenceKind, type MathFenceKind } from '@shared/markdown'
 import type {
   BlockDescriptor,
   BlockKind,
@@ -184,7 +185,7 @@ function collectBlocks(state: EditorState): BlockDescriptor[] {
     }
   })
 
-  let mathStart: number | null = null
+  let mathStart: { line: number; close: MathFenceKind } | null = null
   for (let lineNo = 1; lineNo <= doc.lines; lineNo++) {
     const line = doc.line(lineNo)
     if (excluded.some((range) => line.from >= range.from && line.from < range.to)) {
@@ -192,11 +193,12 @@ function collectBlocks(state: EditorState): BlockDescriptor[] {
       continue
     }
     const text = line.text
-    if (/^\s{0,3}\$\$\s*$/.test(text)) {
-      if (mathStart === null) {
-        mathStart = lineNo
-      } else {
-        const from = doc.line(mathStart).from
+    const fence = mathFenceKind(text)
+    if (fence) {
+      if (!mathStart) {
+        mathStart = { line: lineNo, close: fence === '\\[' ? '\\]' : '$$' }
+      } else if (fence === mathStart.close) {
+        const from = doc.line(mathStart.line).from
         const to = line.to
         blocks.push({
           kind: 'math',
