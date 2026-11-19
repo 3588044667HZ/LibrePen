@@ -29,6 +29,7 @@
     "src/renderer/src/editor/blocks/tableModel.ts",
     "src/renderer/src/editor/pandocMarkdown.ts",
     "src/renderer/src/editor/links.ts",
+    "src/renderer/src/editor/dragGuard.ts",
     "tests/**/*.ts"
   ]
 }

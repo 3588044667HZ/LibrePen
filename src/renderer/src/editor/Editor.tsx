@@ -43,6 +43,7 @@ import {
 } from '@shared/markdown'
 import { livePreview } from './livePreview'
 import { sourceSyntax } from './sourceSyntax'
+import { clampDragPoint, limitDragStep } from './dragGuard'
 import { editorTheme } from './theme'
 import { findBlockAt, setBlockEdit } from './blocks/blockState'
 import { focusModeExtension, typewriterModeExtension } from './effects'
@@ -307,8 +308,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
             }
           }),
           EditorView.domEventHandlers({
-            mousedown: (event, view) =>
-              handleLinkClick(event, view) || handleDocumentEndClick(event, view),
+            mousedown: (event, view) => {
+              trackPreviewClick(event, view, propsRef.current.sourceMode)
+              if (trackDocumentEndClick(event, view)) return true
+              return handleLinkClick(event, view)
+            },
+            click: (event, view) => {
+              if (handlePreviewClick(event, view)) return true
+              return handleDocumentEndClick(event, view)
+            },
             paste: (event) => handlePaste(event),
             drop: (event) => handleDrop(event),
             contextmenu: (event) => {
@@ -333,6 +341,90 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(prop
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!props.sourceMode) return
+    const view = viewRef.current
+    if (!view) return
+    let dragging = false
+    let dispatching = false
+    let lastX = 0
+    let lastY = 0
+    let lastTime = 0
+    const content = view.contentDOM
+
+    const onDown = (event: MouseEvent): void => {
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+      if (!(event.target instanceof Node) || !content.contains(event.target)) return
+      dragging = true
+      lastX = event.clientX
+      lastY = event.clientY
+      lastTime = event.timeStamp || performance.now()
+    }
+
+    const onMove = (event: MouseEvent): void => {
+      if (!dragging || dispatching) return
+      if (event.buttons === 0) {
+        event.stopImmediatePropagation()
+        return
+      }
+      const rect = view.scrollDOM.getBoundingClientRect()
+      const now = event.timeStamp || performance.now()
+      const point = limitDragStep(
+        { x: lastX, y: lastY },
+        clampDragPoint({ x: event.clientX, y: event.clientY }, rect),
+        now - lastTime
+      )
+      const x = point.x
+      const y = point.y
+      lastX = x
+      lastY = y
+      lastTime = now
+      if (x === event.clientX && y === event.clientY) return
+      event.stopImmediatePropagation()
+      dispatching = true
+      content.dispatchEvent(
+        new MouseEvent('mousemove', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          detail: event.detail,
+          screenX: event.screenX,
+          screenY: event.screenY,
+          clientX: x,
+          clientY: y,
+          ctrlKey: event.ctrlKey,
+          shiftKey: event.shiftKey,
+          altKey: event.altKey,
+          metaKey: event.metaKey,
+          button: event.button,
+          buttons: event.buttons
+        })
+      )
+      dispatching = false
+    }
+
+    const onUp = (): void => {
+      dragging = false
+    }
+
+    const onWheel = (): void => {
+      dragging = false
+    }
+
+    document.addEventListener('mousedown', onDown, true)
+    document.addEventListener('mousemove', onMove, true)
+    document.addEventListener('mouseup', onUp, true)
+    document.addEventListener('wheel', onWheel, true)
+    window.addEventListener('blur', onUp)
+    return () => {
+      document.removeEventListener('mousedown', onDown, true)
+      document.removeEventListener('mousemove', onMove, true)
+      document.removeEventListener('mouseup', onUp, true)
+      document.removeEventListener('wheel', onWheel, true)
+      window.removeEventListener('blur', onUp)
+    }
+  }, [props.sourceMode])
 
   useEffect(() => {
     const view = viewRef.current
@@ -788,7 +880,90 @@ function handleLinkClick(event: MouseEvent, view: EditorView): boolean {
   return true
 }
 
+let documentEndDown: { x: number; y: number; button: number } | null = null
+let previewClickDown: { x: number; y: number; button: number; position: number; line: number } | null = null
+
+function trackPreviewClick(event: MouseEvent, view: EditorView, sourceMode: boolean): void {
+  previewClickDown = null
+  if (sourceMode) return
+  if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+  if (!(event.target instanceof Element)) return
+  if (!view.contentDOM.contains(event.target)) return
+  if (event.target.closest('.cm-block')) return
+  const lineElement = event.target.closest('.cm-line')
+  if (!lineElement) return
+  try {
+    const lineStart = view.posAtDOM(lineElement, 0)
+    const line = view.state.doc.lineAt(lineStart)
+    const caret = caretPositionAt(event.clientX, event.clientY)
+    let position = line.from
+    if (caret && view.contentDOM.contains(caret.startContainer)) {
+      try {
+        const candidate = view.posAtDOM(caret.startContainer, caret.startOffset)
+        if (view.state.doc.lineAt(candidate).number === line.number) position = candidate
+      } catch {}
+    }
+    previewClickDown = {
+      x: event.clientX,
+      y: event.clientY,
+      button: event.button,
+      position,
+      line: line.number
+    }
+  } catch {}
+}
+
+function handlePreviewClick(event: MouseEvent, view: EditorView): boolean {
+  const down = previewClickDown
+  previewClickDown = null
+  if (!down || down.button !== 0) return false
+  if (event.button !== 0) return false
+  if (Math.hypot(event.clientX - down.x, event.clientY - down.y) > 4) return false
+  const currentLine = view.state.doc.lineAt(view.state.selection.main.head)
+  if (currentLine.number === down.line) return false
+  view.dispatch({ selection: { anchor: down.position } })
+  return true
+}
+
+function caretPositionAt(x: number, y: number): Range | null {
+  const doc = document as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => Range | null
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
+  }
+  if (doc.caretRangeFromPoint) return doc.caretRangeFromPoint(x, y)
+  const position = doc.caretPositionFromPoint?.(x, y)
+  if (!position) return null
+  const range = document.createRange()
+  range.setStart(position.offsetNode, position.offset)
+  range.collapse(true)
+  return range
+}
+
+function trackDocumentEndClick(event: MouseEvent, view: EditorView): boolean {
+  if (event.button !== 0) return false
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return false
+  const content = view.contentDOM.getBoundingClientRect()
+  if (
+    event.clientX < content.left ||
+    event.clientX > content.right ||
+    event.clientY < content.top ||
+    event.clientY > content.bottom
+  ) {
+    return false
+  }
+  const coords = view.coordsAtPos(view.state.doc.length)
+  if (!coords || event.clientY <= coords.bottom + 2) return false
+  documentEndDown = { x: event.clientX, y: event.clientY, button: event.button }
+  event.preventDefault()
+  return true
+}
+
 function handleDocumentEndClick(event: MouseEvent, view: EditorView): boolean {
+  const down = documentEndDown
+  documentEndDown = null
+  if (!down || down.button !== 0) return false
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return false
+  if (Math.hypot(event.clientX - down.x, event.clientY - down.y) > 4) return false
   if (
     event.button !== 0 ||
     event.ctrlKey ||
