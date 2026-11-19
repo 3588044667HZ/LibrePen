@@ -259,6 +259,24 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (appInfo?.platform !== 'android') return
+    const mobile = window as unknown as {
+      __librepenMobileShare?: () => void
+    }
+    mobile.__librepenMobileShare = () => {
+      const content = editorRef.current?.getContent() ?? contentRef.current
+      const name = docRef.current?.displayName ?? '未命名.md'
+      const api = window.api as typeof window.api & {
+        mobile?: { share(text: string, subject: string): void }
+      }
+      api.mobile?.share(content, name)
+    }
+    return () => {
+      delete mobile.__librepenMobileShare
+    }
+  }, [appInfo])
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return
       const key = event.key.toLowerCase()
