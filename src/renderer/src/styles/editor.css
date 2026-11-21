@@ -71,6 +71,15 @@
   line-height: var(--blank-line-height, 1);
 }
 
+.cm-line.cm-md-setext-hidden {
+  height: 0 !important;
+  min-height: 0 !important;
+  line-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden;
+}
+
 .cm-placeholder {
   line-height: var(--editor-line-height, 1.6);
   vertical-align: top;

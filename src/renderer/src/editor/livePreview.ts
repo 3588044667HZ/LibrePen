@@ -278,8 +278,15 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions, layer: 
         const line = doc.lineAt(node.from)
         addLineClass(line.from, name === 'SetextHeading1' ? 'cm-md-h1' : 'cm-md-h2')
         const mark = node.node.lastChild
-        if (mark?.name === 'HeaderMark' && !touches(node.from, node.to)) {
-          addHidden(mark.from, mark.to)
+        if (mark?.name === 'HeaderMark') {
+          const underlineLine = doc.lineAt(mark.from)
+          const markerTouched = state.selection.ranges.some(
+            (range) => range.from < underlineLine.to && range.to > underlineLine.from
+          )
+          if (!markerTouched) {
+            addHidden(mark.from, mark.to)
+            addLineClass(underlineLine.from, 'cm-md-setext-hidden')
+          }
         }
         return true
       }
