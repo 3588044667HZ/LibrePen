@@ -30,7 +30,14 @@ class TypewriterPlugin {
   constructor(private readonly view: EditorView) {}
 
   update(update: ViewUpdate): void {
-    if (!update.selectionSet || this.destroyed) return
+    if (this.destroyed) return
+    if (!update.docChanged) {
+      if (this.pending) {
+        cancelAnimationFrame(this.frame)
+        this.pending = false
+      }
+      return
+    }
     if (this.pending) {
       cancelAnimationFrame(this.frame)
       this.pending = false
